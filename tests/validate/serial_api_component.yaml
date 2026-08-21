@@ -1,0 +1,132 @@
+# The serial_api component declared directly (no module), on esp-idf as SDK rooms build. Covers every
+# supported type, an unsupported one (lock) and each exposure class.
+substitutions:
+  # check-sdk-ref.sh requires it next to the external_components ref.
+  sdk_ref: __SDK_REF__
+
+esphome:
+  name: serial-api-testdev
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+  baud_rate: 0
+
+wifi:
+  ssid: fixture
+  password: fixture-only
+
+# Lights and mqtt/status are compiled only with MQTT, as every SDK room has it.
+mqtt:
+  broker: 127.0.0.1
+  discovery: false
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: __SDK_REF__
+    components: [serial_api]
+
+uart:
+  - id: serial_api_uart
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 115200
+
+serial_api:
+  uart_id: serial_api_uart
+  firmware_version: "1.0.0-test"
+
+switch:
+  - platform: template
+    name: "Relay"
+    optimistic: true
+  - platform: template
+    name: "Puzzle Teclado"
+    optimistic: true
+  - platform: template
+    name: "Reset Room"
+    optimistic: true
+  - platform: template
+    name: "System Restart"  # exposed
+    optimistic: true
+  - platform: template
+    name: "OTA HTTPS prod"  # read-only
+    optimistic: true
+  - platform: template
+    id: hidden_relay
+    name: "Hidden Relay"  # hidden
+    internal: true
+    optimistic: true
+
+binary_sensor:
+  - platform: template
+    name: "Door Sensor"
+    lambda: "return true;"
+
+sensor:
+  - platform: template
+    name: "Temperature"
+    lambda: "return 21.5;"
+    update_interval: never
+
+number:
+  - platform: template
+    name: "Volume"
+    min_value: 0
+    max_value: 100
+    step: 5
+    optimistic: true
+
+text:
+  - platform: template
+    name: "Label"
+    min_length: 0
+    max_length: 32
+    mode: text
+    optimistic: true
+  - platform: template
+    name: "Secret OTA"  # hidden
+    mode: password
+    optimistic: true
+
+text_sensor:
+  - platform: template
+    name: "Firmware Info"
+    lambda: 'return {"1.0.0"};'
+    update_interval: never
+
+select:
+  - platform: template
+    name: "Mode"
+    options:
+      - "Easy"
+      - "Hard Mode"  # an option containing a space — exercises the quoted option list
+    optimistic: true
+
+button:
+  - platform: template
+    name: "Reboot"
+    on_press:
+      - logger.log: "reboot pressed"
+
+light:
+  - platform: esp32_rmt_led_strip
+    name: "Strip"
+    pin: GPIO4
+    num_leds: 8
+    rgb_order: GRB
+    chipset: WS2812
+    effects:
+      - pulse:
+      - addressable_rainbow:
+
+# No serial_api adapter: listed `ro`, ERR unsupported-type.
+lock:
+  - platform: template
+    name: "Door Lock"
+    optimistic: true

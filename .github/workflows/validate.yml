@@ -175,3 +175,17 @@ jobs:
 
       - name: esphome compile
         run: bash scripts/compile-fixtures.sh ${{ matrix.fixtures }}
+
+  # Host unit tests for the Serial API wire protocol: plain g++ driven from Python, no ESPHome.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Serial API protocol unit tests
+        run: python -m unittest discover -s tests/unit -p 'test_*.py' -v
