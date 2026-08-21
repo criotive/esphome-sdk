@@ -1,0 +1,33 @@
+# Negative: serial RX on GPIO3 while a canbus: block receives on GPIO3, as on hds_v1_1. The rule
+# compares the configured CAN pins, never the board name. Sourced locally so validation reaches
+# FINAL_VALIDATE without a git fetch.
+esphome:
+  name: ser-can-conflict
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+logger:
+  baud_rate: 0
+
+external_components:
+  - source:
+      type: local
+      path: ../../components
+    components: [serial_api]
+
+uart:
+  - id: serial_api_uart
+    tx_pin: GPIO17
+    rx_pin: GPIO3
+    baud_rate: 115200
+
+serial_api:
+  uart_id: serial_api_uart
+
+canbus:
+  - platform: esp32_can
+    tx_pin: GPIO2   # hds_v1_1 CAN TX
+    rx_pin: GPIO3   # hds_v1_1 CAN RX — the pin the serial API also grabbed
+    can_id: 4
+    bit_rate: 125kbps

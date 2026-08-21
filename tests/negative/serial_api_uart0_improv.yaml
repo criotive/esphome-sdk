@@ -1,0 +1,30 @@
+# Negative: the serial API on UART0 while improv_serial reads it. Enforced by serial_api's
+# FINAL_VALIDATE_SCHEMA; check-serial-api-pins.sh asserts the error names improv_serial.
+esphome:
+  name: ser-improv-conflict
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+logger:
+  baud_rate: 115200
+
+wifi:
+  ap: {}
+
+improv_serial:
+
+external_components:
+  - source:
+      type: local
+      path: ../../components
+    components: [serial_api]
+
+uart:
+  - id: serial_api_uart
+    tx_pin: GPIO1
+    rx_pin: GPIO3
+    baud_rate: 115200
+
+serial_api:
+  uart_id: serial_api_uart

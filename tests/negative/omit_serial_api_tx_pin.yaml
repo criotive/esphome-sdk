@@ -1,0 +1,27 @@
+# Negative: omitting serial_api_tx_pin fails `esphome config` naming the pin, which
+# check-serial-api-pins.sh asserts (check-negative.sh sees only the exit). Every other required
+# substitution is supplied, and the `1/0` guard fires before any git fetch.
+substitutions:
+  device_name: neg-device
+  firmware_version: "0.0.0-test"
+  wifi_ssid: test-ssid
+  wifi_password: test-wifi-password
+  wifi_ap_password: test-ap-password
+  criotive_env: prod
+  mqtt_username: test-mqtt-user
+  mqtt_password: test-mqtt-password
+  ota_password: test-ota-password
+  ota_http_server: ota.test.invalid/blobs/
+  serial_api_rx_pin: "3"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+packages:
+  core: !include { file: ../../modules/core.yaml, vars: {sdk_ref: local-test} }
+  wifi: !include { file: ../../modules/wifi.yaml, vars: {sdk_ref: local-test} }
+  mqtt: !include { file: ../../modules/criotive_mqtt.yaml, vars: {sdk_ref: local-test} }
+  ota: !include { file: ../../modules/ota.yaml, vars: {sdk_ref: local-test} }
+  serial: !include { file: ../../modules/serial_api.yaml, vars: {sdk_ref: local-test} }

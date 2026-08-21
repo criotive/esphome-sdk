@@ -104,6 +104,11 @@ jobs:
           bash scripts/check-negative.sh --self-test
           bash scripts/check-negative.sh
 
+      - name: Serial API pin-contract gate (required pins + component pin-conflict rule, by error text)
+        run: |
+          bash scripts/check-serial-api-pins.sh --self-test
+          bash scripts/check-serial-api-pins.sh
+
   # Compiles only the fixtures this pull request can break (scripts/select-fixtures.sh), in shards
   # of eight, so a docs change compiles nothing. The release merge compiles all of them.
   discover:

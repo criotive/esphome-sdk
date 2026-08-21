@@ -1,0 +1,33 @@
+# The serial API on UART0 (GPIO1/GPIO3), the board's USB port: SW1 disabled, the logger's console
+# off (core.yaml's default) and no improv_serial or canbus, so the pin-conflict rule passes. Without
+# improv_serial, Wi-Fi comes from a station slot. The flag is a quoted string because substitutions
+# passed with `-s` always arrive as strings.
+substitutions:
+  device_name: serial-api-uart0-testdev
+  firmware_version: "0.0.0-test"
+  wifi_ssid: test-ssid
+  wifi_password: test-wifi-password
+  hds_v1_1_sw1_enabled: "false"
+  serial_api_tx_pin: "1"
+  serial_api_rx_pin: "3"
+
+packages:
+  criotive:
+    url: https://github.com/criotive/esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: hardware/hds_v1_1.yaml
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ciotcfg.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/criotive_mqtt.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ota.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/controls.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/serial_api.yaml
+        vars: {sdk_ref: __SDK_REF__}
