@@ -599,6 +599,44 @@ the entities themselves stay in the device's own config.
   With no `mqtt:` in the config there is no companion and this is an ordinary button,
   indistinguishable from `platform: template`.
 
+- **`linear_motor.yaml` — a DC linear actuator on an H-bridge, as a `switch`.** Open-loop: ON drives
+  out, OFF drives back, each for its own time, then both outputs are driven together and it holds.
+  **Import it when** a room moves a drawer, hatch or slot with the H Bridge module.
+
+  ```yaml
+  switch:
+    - platform: linear_motor
+      name: "Motor Linear da gaveta"
+      id: motor_linear
+      pin_a: ${slot_2_h_bridge_out_1}
+      pin_b: ${slot_2_h_bridge_out_2}
+      travel_time: 10s      # retract_time overrides it for the return stroke
+  ```
+
+  Three behaviours are worth knowing:
+
+  - **Every command drives**, not only a change of state, so a reset can retract an actuator it
+    already believes retracted. The repeat publishes nothing, because `Switch::publish_state`
+    deduplicates — a re-drive is invisible to the platform.
+  - **Reversing cancels the previous stroke's end-of-travel**, which would otherwise brake in the
+    middle of the new movement.
+  - **`restore_mode` defaults to `ALWAYS_OFF`**, so boot drives to the retracted end. Open-loop that
+    is the only way to reach a known position.
+
+  Use `linear_motor.is_moving` to hold a room reset open until the stroke has finished:
+
+  ```yaml
+  - wait_until:
+      condition:
+        not:
+          linear_motor.is_moving: motor_linear
+      timeout: 15s
+  ```
+
+  Not ESPHome's `hbridge` switch, which rests both outputs LOW, no-ops a repeated command and is
+  `final`; nor a `time_based` cover, which the criotive platform maps to an opaque Object variable
+  instead of a bindable `switch`.
+
   **The SDK holds itself to this.** `check-button-platform.sh` fails the build if any button in
   `modules/` or `hardware/` is visible to the platform — that is, not `internal: true` — and is not
   an `ack_button`. `controls.yaml` is the shape to copy: a visible `ack_button` in front of an
