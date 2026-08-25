@@ -1,0 +1,55 @@
+# Fixture: the linear_motor switch platform, declaring one actuator per shape the
+# schema allows -- symmetric travel, and an asymmetric return stroke -- so release
+# CI compiles the C++ rather than only validating the Python. The `is_moving`
+# condition is consumed below for the same reason: an unused Condition template
+# is never instantiated.
+esphome:
+  name: linear-motor-testdev
+  on_boot:
+    - priority: -100
+      then:
+        - switch.turn_off: drawer
+        - wait_until:
+            condition:
+              not:
+                linear_motor.is_moving: drawer
+            timeout: 15s
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+switch:
+  - platform: linear_motor
+    name: "Drawer"
+    id: drawer
+    pin_a: GPIO16
+    pin_b: GPIO17
+    travel_time: 10s
+    on_state:
+      - if:
+          condition:
+            linear_motor.is_moving: drawer
+          then:
+            - logger.log: "drawer still travelling"
+
+  # Slower coming back under load: retract_time overrides travel_time for the
+  # return stroke only.
+  - platform: linear_motor
+    name: "Hatch"
+    id: hatch
+    pin_a: GPIO18
+    pin_b: GPIO19
+    travel_time: 2s
+    retract_time: 4s
+
+packages:
+  criotive:
+    url: https://github.com/c-iot-systems/esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: modules/linear_motor.yaml
+        vars: {sdk_ref: __SDK_REF__}

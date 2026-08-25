@@ -1,0 +1,14 @@
+# The linear_motor driver only; the actuators themselves are device-specific:
+#
+#   switch:
+#     - platform: linear_motor
+#       name: "Motor Linear da gaveta"
+#       pin_a: ${slot_2_h_bridge_out_1}
+#       pin_b: ${slot_2_h_bridge_out_2}
+#       travel_time: 10s
+external_components:
+  - source:
+      type: git
+      url: https://github.com/c-iot-systems/esphome-sdk
+      ref: ${sdk_ref}
+    components: [linear_motor]
