@@ -1,6 +1,10 @@
 substitutions:
   ota_attempts: "50"
   ota_http_server_test: ${ota_http_server}
+  # ESPHome defaults to 4.5s, which also bounds the blocking
+  # esp_http_client_open()/fetch_headers() before the download loop -- where an
+  # OTA over a weak TLS link dies, after publishing "OTA start".
+  ota_http_timeout: 15s
 
 safe_mode:
   num_attempts: ${ota_attempts}
@@ -40,6 +44,11 @@ ota:
 
 http_request:
   verify_ssl: false  # TODO: turn this on
+  timeout: ${ota_http_timeout}
+  # No `watchdog_timeout:` -- do not add one. WatchdogManager *assigns* it for
+  # the request (no max against the current value), so against the boards' own
+  # `esp32: watchdog_timeout: 60s` any value here narrows the watchdog instead
+  # of widening it. Unset keeps the 60s: the option has no default.
 
 text:
   - platform: template
