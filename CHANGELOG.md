@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.4](https://github.com/criotive/esphome-sdk/compare/v0.3.3...v0.3.4) (2026-08-25)
+
+
+### Features
+
+* **linear-motor:** drive an H-bridge linear actuator as a switch ([88a8f29](https://github.com/criotive/esphome-sdk/commit/88a8f29ed4ccd752f6d2cdcaef65b934d95c6d80))
+* **linear-motor:** drive an H-bridge linear actuator as a switch ([de3c847](https://github.com/criotive/esphome-sdk/commit/de3c847d4cf04a199137b1371297ff2fde118389))
+
+
+### Bug Fixes
+
+* **ota:** give the OTA HTTP client a 15s timeout instead of ESPHome's 4.5s ([8207344](https://github.com/criotive/esphome-sdk/commit/8207344a6025e882beb8a78c5c3a706004a7b09e))
+* **ota:** give the OTA HTTP client a 15s timeout instead of ESPHome's 4.5s ([78576ae](https://github.com/criotive/esphome-sdk/commit/78576aecff8722a17be8de8a5fd3831cbbfa6509))
+
 ## [0.3.3](https://github.com/criotive/esphome-sdk/compare/v0.3.2...v0.3.3) (2026-08-19)
 
 
