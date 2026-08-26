@@ -96,6 +96,12 @@ mqtt:
   # measured 20019ms in that path on a poor link, with loop watchdog resets;
   # PR#8325 added the worker thread this enables. Measured on our bench with 19
   # forced reconnects and ~40 entities: main-loop worst case 1578ms -> 352ms.
+  #
+  # Expect "Dropped N messages (10s)" on first connect: the discovery burst overruns ESPHome's
+  # fixed 30-slot ring (MQTT_QUEUE_LENGTH). Discovery and initial state are retried via
+  # process_resend(), so they arrive; an ordinary runtime publish is not (MQTTSwitchComponent
+  # defers publish_state and discards the result). Do not "fix" it by turning this off -- that
+  # brings back the main-loop stalls above.
   idf_send_async: true
   client_id: ${mqtt_client_id}
   topic_prefix: ${device_name}
