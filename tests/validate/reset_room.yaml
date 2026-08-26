@@ -1,0 +1,52 @@
+# Fixture: reset_room with both hooks supplied, room_reset blocking so wait_until is exercised.
+substitutions:
+  device_name: reset-room-testdev
+  firmware_version: "0.0.0-test"
+  wifi_ssid: test-ssid
+  wifi_password: test-wifi-password
+  wifi_ap_password: test-ap-password
+  criotive_env: prod
+  mqtt_username: test-mqtt-user
+  mqtt_password: test-mqtt-password
+  ota_password: test-ota-password
+  ota_http_server: ota.test.invalid/blobs/
+
+packages:
+  criotive:
+    url: https://github.com/c-iot-systems/esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: hardware/hds_v1_0.yaml
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/criotive_mqtt.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ota.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/reset_room.yaml
+        vars: {sdk_ref: __SDK_REF__}
+
+switch:
+  - platform: template
+    id: puzzle_exemplo
+    name: "Puzzle Exemplo"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: template
+    id: solenoide
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+
+script:
+  - id: room_reset_unsolve
+    then:
+      - switch.turn_off: puzzle_exemplo
+
+  - id: room_reset
+    then:
+      - switch.turn_on: solenoide
+      - delay: 2s
+      - switch.turn_off: solenoide

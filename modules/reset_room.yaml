@@ -1,0 +1,57 @@
+# The room-reset switch the criotive platform drives. The room supplies two scripts:
+#
+#   script:
+#     - id: room_reset_unsolve      # clear puzzle state; MUST NOT block. `then: []` if none.
+#       then: [switch.turn_off: puzzle_xilofone]
+#     - id: room_reset              # put the room back; may take as long as it needs
+#       then: [...]
+#
+# The name is not a knob: the backend resolves the reset by matching a component named exactly
+# `reset_room`, and a rename validates cleanly then fails as ResetRoomSwitchNotConfigured.
+substitutions:
+  reset_room_yield: 100ms
+  reset_room_timeout: 15s
+  # "false" for a room whose reset makes noise or moves something: otherwise every OTA reboot and
+  # brownout replays it mid-session.
+  reset_room_on_boot: "true"
+
+esphome:
+  on_boot:
+    - priority: -100
+      then:
+        - if:
+            condition:
+              lambda: >-
+                return ${ 'false' if reset_room_on_boot | string | lower in ['false', '0', 'no', '']
+                          else 'true' };
+            then:
+              - switch.turn_on: reset_room
+
+switch:
+  - platform: template
+    id: reset_room
+    name: "Reset Room"
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    # on_turn_on, not turn_on_action: it sits behind publish_state's dedup, so a redundant ON
+    # cannot restart a reset already under way.
+    on_turn_on:
+      # Unsolve before the yield: after it, the room's own inputs are already publishing and a
+      # puzzle physically solved at boot can re-solve itself under a still-running reset.
+      - script.execute: room_reset_unsolve
+      # Load-bearing. MQTTSwitchComponent defers its publish keyed per component, so reaching the
+      # turn_off below in one pass would overwrite this switch's own pending ON -- and the platform
+      # waits 5s for that ON.
+      - delay: ${reset_room_yield}
+      # A `mode: single` hook still running would swallow the execute, and the wait would then
+      # return on the OLD run, reporting a reset that never ran.
+      - script.stop: room_reset
+      - script.execute: room_reset
+      # The card reads "Resetting..." until this goes OFF, so wait for the body -- but bounded, or
+      # a stuck reset wedges the card until someone reboots the device.
+      - wait_until:
+          condition:
+            not:
+              script.is_running: room_reset
+          timeout: ${reset_room_timeout}
+      - switch.turn_off: reset_room

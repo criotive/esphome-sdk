@@ -84,7 +84,7 @@ the modules it imports.
 | `ota_attempts` | no | `50` _(safety)_ | safe-mode boot attempts — larger recovery budget (ESPHome stock is `5`) |
 | `ota_http_server` | **yes** | — | HTTPS OTA download host |
 | `ota_http_server_test` | no | `${ota_http_server}` _(convenience)_ | *(`ota.yaml`)* test/staging OTA host — see below |
-| `logger_level` | no | `NONE` _(safety)_ | logging is **off by default** — see below |
+| `logger_level` | no | derived from `logger_baud_rate`: `NONE` while the console is off, else `DEBUG` _(safety)_ | logging is **off by default**, because the console is — see below |
 | `logger_baud_rate` | no | `0` _(safety)_ | `0` **disables** the serial console (skips UART init) — see below |
 | `logger_hardware_uart` | no | `UART0` _(convenience)_ | logger UART; `UART0` is the only console these boards can use — see below |
 | `diagnostics_update_interval` | no | `60s` _(convenience)_ | *(`diagnostics.yaml`)* cadence for debug sensors a device attaches to the `debug` component — see below |
@@ -184,10 +184,28 @@ sentinel.
 
 ### Logging is off in production by default
 
-`logger_level` defaults to **`NONE`**: a device ships silent and its `logger:` emits nothing until a
-consumer raises the level **deliberately**, per device — never on by default. A chatty default is not
-free: it costs flash, CPU and (when a device also publishes logs) broker traffic on every unit that
-forgot to turn it down.
+`logger_level` defaults to **`NONE` whenever the serial console is off**, which is itself the
+default — so a device still ships silent, and a production unit that sets neither knob emits
+nothing. A chatty default is not free: it costs flash, CPU and (when a device also publishes logs)
+broker traffic on every unit that forgot to turn it down.
+
+What changed is that the level is **derived from `logger_baud_rate`** rather than pinned
+independently:
+
+| `logger_baud_rate` | `logger_level` (if you do not set it) |
+|---|---|
+| `0` / unset — console off | `NONE` |
+| anything else — console on | `DEBUG` |
+
+Opening the UART and leaving the level at `NONE` produced a console that printed the ROM and
+ESP-IDF bootloader banners and then nothing at all, which on a bench is indistinguishable from a
+device that hung during setup. Since turning the console on is exactly what you do when a device
+looks dead, that pairing bit hardest when it was least affordable. Asking for a console now gets
+you one.
+
+Your own value still wins, in both directions, whether it arrives in a `substitutions:` block or
+through ESPHome's `-s`. So `logger_level: NONE` alongside a real baud rate remains available and
+means what it says: claim the port, stay quiet.
 
 To raise it, set the substitution per device to one of ESPHome's levels — `INFO`, `DEBUG`,
 `VERBOSE` or `VERY_VERBOSE`:
@@ -197,22 +215,36 @@ substitutions:
   logger_level: DEBUG   # opt in per device; production stays NONE
 ```
 
-The knob is unchanged — only its default flipped from `INFO` back to `NONE`.
+The knob is unchanged; only its default is computed rather than fixed.
 
 #### The serial console — `logger_baud_rate` and `logger_hardware_uart`
 
 `logger_level` gates which records are ever *produced*; `logger_baud_rate` gates whether a UART
-*console* exists to print them on. They are **independent**, and the console is **off by default**:
-`logger_baud_rate` defaults to **`0`**, which skips UART init entirely (ESPHome 2026.5.1 guards it
-with `if (this->baud_rate_ > 0)` and `0` still validates, since the field is `positive_int`
-= `int_range(min=0)`). So **raising serial logs takes both knobs** — a non-`NONE` `logger_level`
-*and* a non-zero `logger_baud_rate`:
+*console* exists to print them on. The console is **off by default**: `logger_baud_rate` defaults to
+**`0`**, which skips UART init entirely (ESPHome 2026.5.1 guards it with `if (this->baud_rate_ > 0)`
+and `0` still validates, since the field is `positive_int` = `int_range(min=0)`).
+
+The two are still separate knobs, but the level **follows** the baud rate unless you say otherwise,
+so serial logs take **one**:
 
 ```yaml
 substitutions:
-  logger_level: INFO       # gate record production
-  logger_baud_rate: "115200"  # AND open the UART console — both are required
+  logger_baud_rate: "115200"  # open the console; level follows to DEBUG
 ```
+
+Set `logger_level` as well when `DEBUG` is not what you want:
+
+```yaml
+substitutions:
+  logger_baud_rate: "115200"
+  logger_level: INFO          # your value wins over the derived one
+```
+
+**Quote a `0` you write by hand, or leave the knob out.** Substitutions are not type-coerced by
+ESPHome (`CONFIG_SCHEMA = {validate_substitution_key: object}`), so an unquoted `logger_baud_rate: 0`
+is a YAML *int* while the SDK's own default is the *string* `"0"`. The derivation compares through
+`| string` against `'0'` and `''` precisely so both spellings mean "console off"; the same care is
+why `hds_v1_1_sw1_enabled` is compared the way it is.
 
 `logger_hardware_uart` selects which UART the console uses. It defaults to **`UART0`**, which is the
 only console the supported boards can actually use: `UART1`/`UART2`'s default pins are wired to flash
@@ -341,8 +373,13 @@ topic, the same standard by which the fixture proves the TLS `certificate_author
 **Opting in (per device).** A consumer that wants a device's logs on the broker sets **two** things
 in that device's config: its own `mqtt: log_topic:` block (which merges over the module's null) **and**
 a non-`NONE` `logger_level`. Both are needed — the global `logger:` level gates which records are ever
-produced, so a `log_topic` with `logger_level: NONE` (the default) publishes nothing and the topic
-stays silent:
+produced, so a `log_topic` with `logger_level: NONE` publishes nothing and the topic stays silent:
+
+**Watch the interaction with the console.** `logger_level` is derived from `logger_baud_rate` (see
+[Logging is off in production by default](#logging-is-off-in-production-by-default)), so a device
+that opts into `log_topic` *and* opens a serial console — without naming a level — gets `DEBUG` on
+the broker as well as on the wire. That is a real amount of MQTT traffic. Name the level explicitly
+on any device that publishes its logs, rather than inheriting one:
 
 ```yaml
 substitutions:
