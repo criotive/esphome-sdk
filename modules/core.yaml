@@ -1,6 +1,9 @@
 substitutions:
-  logger_level: NONE
   logger_baud_rate: "0" # Serial off by default; frees GPIO1.
+  # Follows the baud rate: opening the UART and logging nothing looks exactly like a hung board.
+  # A consumer's own logger_level still wins. Compared through `| string` because substitutions are
+  # not type-coerced, so an unquoted `0` is an int -- same trap as hds_v1_1_sw1_enabled.
+  logger_level: "${ 'NONE' if logger_baud_rate | string in ['0', ''] else 'DEBUG' }"
   logger_hardware_uart: UART0
   framework_variant: esp-idf
   # Arduino builds must set this to "false".
