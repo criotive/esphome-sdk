@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  ESPHOME_VERSION: "2026.5.1"
+  ESPHOME_VERSION: "2026.9.1"
 
 # Deliberately NO `concurrency:` group. Within a group GitHub keeps only the newest PENDING run and
 # cancels older ones, even with cancel-in-progress: false — so a burst of pushes could cancel the

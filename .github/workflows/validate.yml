@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  ESPHOME_VERSION: "2026.5.1"
+  ESPHOME_VERSION: "2026.9.1"
   SDK_REF: ${{ github.event.pull_request.head.sha }}
 
 jobs:
@@ -98,3 +98,59 @@ jobs:
         run: |
           bash scripts/check-negative.sh --self-test
           bash scripts/check-negative.sh
+
+  # The same per-fixture compile release-gate.yml runs on main, run here too so a component that
+  # does not build is caught before merge rather than after, when main is already broken.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      fixtures: ${{ steps.list.outputs.fixtures }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - id: list
+        run: |
+          set -euo pipefail
+          fixtures="$(find tests/validate -maxdepth 1 \( -name '*.yaml' -o -name '*.yml' \) \
+                        | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          if [ "$(jq -r 'length' <<<"$fixtures")" -eq 0 ]; then
+            echo "::error::no validate fixtures found"
+            exit 1
+          fi
+          echo "fixtures=${fixtures}" >>"$GITHUB_OUTPUT"
+
+  compile:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: ${{ fromJSON(needs.discover.outputs.fixtures) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the PlatformIO toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-esphome-${{ env.ESPHOME_VERSION }}
+          restore-keys: pio-${{ runner.os }}-esphome-
+
+      - name: Install ESPHome ${{ env.ESPHOME_VERSION }}
+        run: pip install "esphome==${ESPHOME_VERSION}"
+
+      - name: Materialize the revision under test into validate fixtures
+        run: bash scripts/materialize-sdk-ref.sh "${{ github.event.pull_request.head.sha }}"
+
+      - name: esphome compile ${{ matrix.fixture }}
+        run: esphome compile "${{ matrix.fixture }}"

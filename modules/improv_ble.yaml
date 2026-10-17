@@ -14,7 +14,7 @@
 #
 # COSTS FLASH. The BLE stack is several hundred kilobytes on top of the image; a project already
 # close to its app partition will fail to link rather than fail to validate, so the real compile in
-# `release-gate.yml` is what proves it fits, not `esphome config`.
+# CI is what proves it fits, not `esphome config`.
 #
 # ESPHome 2026.9.1 also restarts advertising on a PROVISIONED device once Wi-Fi has been down for
 # `wifi_timeout`, so with no authorizer a router outage would let anyone in range re-point it. The

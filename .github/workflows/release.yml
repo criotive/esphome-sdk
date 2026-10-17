@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 env:
-  ESPHOME_VERSION: "2026.5.1"
+  ESPHOME_VERSION: "2026.9.1"
   SDK_REF: ${{ inputs.tag || github.ref_name }}
 
 jobs:

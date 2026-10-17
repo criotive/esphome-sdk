@@ -264,7 +264,7 @@ overrides `esp32_improv:` in its own config with an `authorizer:` naming that bi
 
 **BLE costs flash.** The stack is several hundred kilobytes on top of the image, and a project near
 its app partition fails to *link* rather than fail to validate — `esphome config` cannot see it, so
-the real compile in `release-gate.yml` is what proves it fits.
+the real compile in CI (`validate.yml` on a PR, `release-gate.yml` on main) is what proves it fits.
 
 ### A device never reboots through an outage — offline survival is an invariant
 
