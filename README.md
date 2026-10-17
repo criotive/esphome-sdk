@@ -496,9 +496,11 @@ It never sleeps while:
   for an update or for anything that needs more than one wake. Its state is kept in flash, so it
   survives every sleep; turning it off lets the device sleep at once.
 
-**A command reaches the device only while it is awake.** The platform does not retain commands, and
-the broker keeps nothing for a client that is asleep, so send it during the awake window: turn Stay
-Awake on there, then do the rest.
+**Send commands during the awake window.** The platform does not retain commands. The device
+connects with a persistent session (`clean_session: false`) and subscribes at QoS 1, so a command
+sent while it sleeps waits for the next wake only if the broker still holds the session by then —
+which depends on the broker's session expiry, not on the SDK. Turn Stay Awake on in the awake window,
+then do the rest.
 
 Every wake is a boot: `boots` counts wakes, and the device reconnects to Wi-Fi and the broker each
 time. The safe-mode counter does **not** grow across them, although each wake ends long before

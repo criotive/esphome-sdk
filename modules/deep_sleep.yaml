@@ -11,9 +11,9 @@
 #     survives every sleep: deep sleep runs the shutdown hooks, and the preferences syncer writes
 #     on shutdown (ESPHome 2026.5.1, deep_sleep_component.cpp, preferences/syncer.h).
 #
-# A command reaches a device only while it is awake: the platform does not retain commands, and the
-# broker keeps nothing for a client that is asleep. The awake window after the broker connects is
-# when to send one.
+# Send commands in the awake window after the broker connects. The session is persistent
+# (clean_session: false) and QoS 1, so one sent during sleep arrives on the next wake only if the
+# broker's session expiry has not dropped it.
 #
 # The safe-mode counter does not grow across these boots, even though each one ends long before
 # `boot_is_good_after`: safe_mode clears it from on_safe_shutdown, which runs before the preferences
@@ -65,7 +65,7 @@ script:
           then:
             - delay: ${deep_sleep_awake_duration}
       - wait_until:
-          condition:
+          condition: &deep_sleep_may_sleep
             and:
               - switch.is_off: deep_sleep_stay_awake
               - not:
@@ -81,4 +81,7 @@ script:
                   #endif
                   return true;
       - delay: 1s # Allow MQTT to publish the Stay Awake state.
+      # Again: Stay Awake or an update may have arrived during that second.
+      - wait_until:
+          condition: *deep_sleep_may_sleep
       - deep_sleep.enter: deep_sleep_control
