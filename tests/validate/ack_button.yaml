@@ -57,7 +57,7 @@ binary_sensor:
 
 packages:
   criotive:
-    url: https://github.com/junioteixeira/test-esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: __SDK_REF__
     files:
       - path: modules/core.yaml

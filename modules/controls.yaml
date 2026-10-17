@@ -26,7 +26,7 @@
 external_components:
   - source:
       type: git
-      url: https://github.com/junioteixeira/test-esphome-sdk
+      url: https://github.com/criotive/esphome-sdk
       ref: ${sdk_ref}
     components: [ack_button]
 

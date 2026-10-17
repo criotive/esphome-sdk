@@ -23,7 +23,7 @@ esp32:
 
 packages:
   criotive:
-    url: https://github.com/junioteixeira/test-esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: v0.4.0
     files:
       - path: modules/core.yaml
@@ -593,7 +593,7 @@ once and every module writes `ref: ${sdk_ref}`:
 external_components:
   - source:
       type: git
-      url: https://github.com/junioteixeira/test-esphome-sdk
+      url: https://github.com/criotive/esphome-sdk
       ref: ${sdk_ref}
     components: [google_location]
 ```
