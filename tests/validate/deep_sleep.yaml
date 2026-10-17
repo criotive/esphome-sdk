@@ -1,0 +1,27 @@
+# Fixture: the deep-sleep cycle on an ESP-IDF board, where its pending-verify check compiles in. It
+# reaches criotive_mqtt's connection and ota's script_ota_from_command, so composing it without
+# either is what this fixture would catch.
+substitutions:
+  device_name: deep-sleep-testdev
+  firmware_version: "0.0.0-test"
+  wifi_ssid: test-ssid
+  wifi_password: test-wifi-password
+
+packages:
+  criotive:
+    url: https://github.com/junioteixeira/test-esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: hardware/hds_v1_0.yaml
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/criotive_mqtt.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ciotcfg.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ota.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/deep_sleep.yaml
+        vars: {sdk_ref: __SDK_REF__}

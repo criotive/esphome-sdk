@@ -1,0 +1,24 @@
+# Home Assistant's native API: TCP 6053 on the local network, where Home Assistant reads and drives
+# the device directly, beside MQTT. `bluetooth_proxy` and anything else built on the API need it.
+#
+# Encryption with no key. A device starts accepting plaintext; the first client that connects gives
+# it a noise key, which the device stores in flash, and from then on it accepts only that key, with
+# plaintext refused, until a factory reset erases it (ESPHome 2026.5.1 and 2026.9.1,
+# api/__init__.py: an `encryption:` with no `key` builds both protocols). Until that first client
+# arrives, anyone on the same network can claim the device, which is the trade for keeping a secret
+# out of a bundle the platform stores and returns to anyone who can read the version. A device that
+# must never be open writes its own key, which merges over this one:
+#
+#   api:
+#     encryption:
+#       key: <openssl rand -base64 32>
+#
+# ESPHome reboots a device that has had no API client for `reboot_timeout`, 15min by default. A
+# device on this SDK reports over MQTT and often has no Home Assistant at all, so the default here
+# disables it, as wifi and mqtt do (check-offline-survival.sh).
+substitutions:
+  api_reboot_timeout: 0s
+
+api:
+  reboot_timeout: ${api_reboot_timeout}
+  encryption: {}
