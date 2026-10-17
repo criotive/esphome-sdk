@@ -51,12 +51,10 @@ mqtt:
       then:
         - if:
             condition:
-              # Every field is checked before any is used. Other system commands
-              # arrive on this same topic, and a partial ota payload must be
-              # ignored rather than half-acted on -- flashing with an empty md5
-              # downloads the whole image and only then refuses it. Any other
-              # field (`deviceId`, `ticket`, `version`) is tolerated and unused:
-              # the url carries the ticket itself.
+              # Other system commands arrive on this same topic, so only an ota
+              # payload carrying both strings is dispatched; script_ota_from_command
+              # validates their contents. Any other field (`deviceId`, `ticket`,
+              # `version`) is tolerated and unused: the url carries the ticket itself.
               - lambda: |-
                   return x["command"] == "ota" &&
                          x["url"].is<const char *>() &&

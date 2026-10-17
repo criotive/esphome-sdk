@@ -73,9 +73,10 @@ ota:
       - lambda: |-
           const char *reason;
           switch (x) {
-            case 0x10: reason = "md5 is not a valid digest"; break;
+            case 0x10: reason = "md5 is not 32 lowercase hex digits"; break;
             case 0x11: reason = "url is not http(s)"; break;
             case 0x12: reason = "download failed: no connection, TLS verification, HTTP error status or read error"; break;
+            case 0x80: reason = "the file is not a firmware image"; break;
             case 0x89: reason = "image does not fit the app partition"; break;
             case 0x8B: reason = "image does not match the md5"; break;
             default: reason = "update rejected by the OTA backend"; break;
@@ -111,15 +112,32 @@ script:
       url: string
       md5: string
     then:
-      - delay: 1s # Allow MQTT to publish status before the flash blocks the loop.
-      # No username/password. The url carries its own ticket, and the platform
-      # answers it with a redirect to blob storage: ESP-IDF 5.5.1 re-sends an
-      # Authorization header across that redirect, and the storage service
-      # rejects any request that has one. The url therefore reaches no log --
-      # see `logger: logs:` above.
-      - ota.http_request.flash:
-          url: !lambda 'return url;'
-          md5: !lambda 'return md5;'
+      # Checked here because ESPHome rejects a non-http(s) url by clearing it,
+      # and flash() then returns before on_error: the update would fail with no
+      # status at all. Codes are ESPHome's own 0x10 and 0x11.
+      - if:
+          condition:
+            lambda: |-
+              return (url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0) &&
+                     md5.size() == 32 &&
+                     md5.find_first_not_of("0123456789abcdef") == std::string::npos;
+          then:
+            - delay: 1s # Allow MQTT to publish status before the flash blocks the loop.
+            # No username/password. The url carries its own ticket, and the platform
+            # answers it with a redirect to blob storage: ESP-IDF 5.5.1 re-sends an
+            # Authorization header across that redirect, and the storage service
+            # rejects any request that has one. The url therefore reaches no log --
+            # see `logger: logs:` above.
+            - ota.http_request.flash:
+                url: !lambda 'return url;'
+                md5: !lambda 'return md5;'
+          else:
+            - text_sensor.template.publish:
+                id: ota_status
+                state: !lambda |-
+                  if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0)
+                    return std::string("OTA update error 17: url is not http(s)");
+                  return std::string("OTA update error 16: md5 is not 32 lowercase hex digits");
 
   - id: script_rollback
     then:
