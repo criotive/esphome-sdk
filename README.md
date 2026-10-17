@@ -105,8 +105,8 @@ the build path injects no compiler flags. Substitution names are `lower_snake_ca
 **"Required" is scoped to the module that uses it.** Only `device_name`, `firmware_version` and
 `sdk_ref` are required by `core.yaml` and therefore by every device. The only other required
 substitution is `wifi_ap_password`, and only for a device that imports `wifi_ap.yaml`.
-`criotive_mqtt.yaml`, `ciotcfg.yaml`, `wifi.yaml`, `ota.yaml` and `improv_serial.yaml` require
-nothing. A module must not make another module's inputs globally mandatory — that would defeat
+`criotive_mqtt.yaml`, `ciotcfg.yaml`, `wifi.yaml`, `ota.yaml`, `improv_serial.yaml`, `ha_api.yaml`
+and `deep_sleep.yaml` require nothing. A module must not make another module's inputs globally mandatory — that would defeat
 opt-in composition. A device compiles only the modules it imports.
 
 | Substitution | Required | Default | Notes |
@@ -124,6 +124,10 @@ opt-in composition. A device compiles only the modules it imports.
 | `wifi_reboot_timeout` | no | `0s` _(safety)_ | *(`wifi.yaml`, `wifi_ap.yaml`)* — `0s` **disables** the WiFi reboot (offline survival) |
 | `mqtt_reboot_timeout` | no | `0s` _(safety)_ | `0s` **disables** the MQTT reboot (offline survival) |
 | `mqtt_discovery` | no | `true` _(convenience)_ | Home Assistant discovery |
+| `api_reboot_timeout` | no | `0s` _(safety)_ | *(`ha_api.yaml`)* `0s` **disables** the reboot with no Home Assistant connected (offline survival) |
+| `deep_sleep_awake_duration` | no | `30s` _(convenience)_ | *(`deep_sleep.yaml`)* how long a wake stays up once the broker connects — see **Deep sleep** |
+| `deep_sleep_sleep_duration` | no | `5min` _(convenience)_ | *(`deep_sleep.yaml`)* how long each sleep lasts |
+| `deep_sleep_offline_awake_duration` | no | `120s` _(convenience)_ | *(`deep_sleep.yaml`)* how long a wake waits for the broker before sleeping anyway |
 | `ota_password` | no | *(empty)* _(safety)_ | *(`ota.yaml`)* empty **removes** the native ESPHome OTA port; set it to open the port, password-protected — see **Updating over the air** |
 | `ota_attempts` | no | `50` _(safety)_ | safe-mode boot attempts — larger recovery budget (ESPHome stock is `5`) |
 | `ota_http_timeout` | no | `15s` _(convenience)_ | *(`ota.yaml`)* `http_request` timeout for the OTA download |
@@ -268,7 +272,9 @@ unreliable uplinks must ride out an outage rather than power-cycle through it. T
 preference; both reboot timeouts are pinned to `0s` for exactly this reason.
 
 - `wifi_reboot_timeout` and `mqtt_reboot_timeout` both default to **`0s`**, which **disables** the
-  respective connectivity reboot outright. Verified against ESPHome 2026.5.1 source — both components
+  respective connectivity reboot outright, and so does `ha_api.yaml`'s `api_reboot_timeout`: ESPHome
+  reboots a device with no API client for 15 minutes, and a device here usually has no Home
+  Assistant at all (`api/api_server.cpp` guards it the same way). Verified against ESPHome 2026.5.1 source — both components
   guard `App.reboot()` with `reboot_timeout_ != 0` (`wifi/wifi_component.cpp:867`,
   `mqtt/mqtt_client.cpp:418`), so `0s` makes the reboot branch unreachable. ESPHome's stock default
   is `15min` for both; leaving that in place would power-cycle a device every 15 minutes it is
@@ -447,6 +453,57 @@ message is the device's *current* online state a new subscriber should see immed
 is a rolling stream: each line overwrites the last, so a retained log topic makes the broker replay
 one arbitrary, stale log line to every new subscriber — never what a log consumer wants.
 `tests/validate/mqtt_log_optin.yaml` exercises this opt-in path.
+
+### Home Assistant's native API — `ha_api.yaml`
+
+`ha_api.yaml` opens ESPHome's native API on TCP 6053, where Home Assistant on the same network reads
+and drives the device directly, beside MQTT. `bluetooth_proxy` and anything else built on the API
+need it.
+
+**Encryption with no key.** The module enables encryption without a key. The device starts
+accepting plaintext; the first client that connects gives it a key, the device stores it in flash,
+and from then on it accepts only that key and refuses plaintext. A factory reset, or erasing the
+NVS, clears it. Until that first client arrives, anyone on the same network can claim the device.
+That is the trade for keeping a secret out of the firmware's source: a key written there is
+readable by anyone who can read the firmware. A device that must never be open writes its own key,
+which merges over the module's:
+
+```yaml
+api:
+  encryption:
+    key: "<the output of: openssl rand -base64 32>"
+```
+
+ESPHome reboots a device that has had no API client for 15 minutes; `api_reboot_timeout: 0s`
+disables that, as for Wi-Fi and MQTT (see **offline survival**).
+
+### Deep sleep — `deep_sleep.yaml`
+
+For a battery device. Each wake waits up to `deep_sleep_offline_awake_duration` (120s) for the
+broker. Once connected it stays up for `deep_sleep_awake_duration` (30s): every entity publishes
+its state on connect, and a polling sensor's first update comes within 5s of boot. Then it sleeps
+for `deep_sleep_sleep_duration` (5min). With no broker by the end of the wait it sleeps anyway.
+
+It never sleeps while:
+
+- **the running image is still pending verification.** A reset before the SDK confirms an update
+  makes the bootloader roll back on wake. The cycle waits for `criotive_mqtt.yaml`'s confirmation,
+  or for `ota.yaml`'s 300s watchdog to roll back.
+- **an update command has just arrived**, until `script_ota_from_command` hands over to the flash,
+  which blocks the loop until the device reboots.
+- **Stay Awake is on.** A switch (`stay_awake`) the platform turns on to keep the device reachable,
+  for an update or for anything that needs more than one wake. Its state is kept in flash, so it
+  survives every sleep; turning it off lets the device sleep at once.
+
+**A command reaches the device only while it is awake.** The platform does not retain commands, and
+the broker keeps nothing for a client that is asleep, so send it during the awake window: turn Stay
+Awake on there, then do the rest.
+
+Every wake is a boot: `boots` counts wakes, and the device reconnects to Wi-Fi and the broker each
+time. The safe-mode counter does **not** grow across them, although each wake ends long before
+`boot_is_good_after`. Deep sleep runs ESPHome's shutdown hooks, and `safe_mode` clears its counter
+there before the preferences are written (ESPHome 2026.5.1, `safe_mode.cpp`,
+`application.cpp` `run_safe_shutdown_hooks`).
 
 ### Updating over the air — the MQTT `ota` command
 
@@ -696,6 +753,10 @@ restructuring the others.
 - `improv_serial.yaml` — Improv over the serial console; opens the console at `115200` when
   `logger_baud_rate` is `0`. Import after `core.yaml`.
 - `improv_ble.yaml` — Improv over Bluetooth LE (`esp32_improv`, `authorizer: none`).
+- `ha_api.yaml` — Home Assistant's native API on port 6053, with `reboot_timeout` disabled. See
+  **Home Assistant's native API**.
+- `deep_sleep.yaml` — the deep-sleep cycle and its Stay Awake switch. Needs `criotive_mqtt.yaml` and
+  `ota.yaml`. See **Deep sleep**.
 - `diagnostics.yaml` — `debug` platform, device info, reset reason. Its `debug` component polls on
   `diagnostics_update_interval` (default `60s`). The interval is neither `0s` nor `never` on purpose:
   ESPHome coerces a 0 ms interval to **1 ms** (a 1 kHz wakeup on every device), while `never` would
@@ -742,9 +803,10 @@ the MQTT component `sensor`, not `text_sensor`. An `internal: true` entity publi
 | `controls.yaml` | System Restart Safe Mode | button (`ack_button`) | `system_restart_safe_mode` |
 | `controls.yaml` | System Factory Reset | button (`ack_button`) | `system_factory_reset` |
 | `location.yaml` | Location Request | button (`ack_button`) | `location_request` |
+| `deep_sleep.yaml` | Stay Awake | switch | `stay_awake` |
 
-`ciotcfg.yaml`, `wifi_ap.yaml`, `criotive_mqtt.yaml`, `improv_serial.yaml`, `improv_ble.yaml` and
-the driver modules (`ack_button`, `linear_motor`, `medeawiz`, `phone`, `tca8418`) publish no entity
+`ciotcfg.yaml`, `wifi_ap.yaml`, `criotive_mqtt.yaml`, `improv_serial.yaml`, `improv_ble.yaml`,
+`ha_api.yaml` and the driver modules (`ack_button`, `linear_motor`, `medeawiz`, `phone`, `tca8418`) publish no entity
 of their own. `location.yaml`'s `Google location` text sensor is internal; its result arrives as
 `location_parameters` on `<topic_prefix>/telemetry`.
 
