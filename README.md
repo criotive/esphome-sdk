@@ -220,7 +220,7 @@ different moments, and a device may import any combination — see
 | | reaches the device | good for | grants whoever reaches it |
 |---|---|---|---|
 | `improv_serial` | the USB cable already attached | the flashing tool, the moment after it writes | Wi-Fi credentials |
-| `improv_ble` | Bluetooth, no cable, no app | a board already inside an enclosure | Wi-Fi credentials |
+| `improv_ble` | Bluetooth, no cable, no app | a board with no credentials yet, no cable at hand | Wi-Fi credentials |
 | `wifi_ap` | its own fallback AP, from anything with Wi-Fi | the field, months later, no cable | Wi-Fi credentials **and a firmware upload** |
 
 **The criotive platform's flashing tool provisions over `improv_serial`**, right after it writes the
@@ -234,8 +234,9 @@ the broker credentials. The password is compiled into the image, so every device
 config shares it: it is a fleet secret, kept out of any stored or shared config. That is a real cost,
 and it is why the platform's flow does without the AP.
 Improv only offers provisioning while the device has no network it can join, so on a device whose
-station slots are filled it is inert rather than broken, and `esp32_improv` waits out ESPHome's
-`wifi_timeout` (90s) before it starts advertising.
+station slots are filled it is inert rather than broken. `improv_ble` goes further and advertises
+only on a device with no Wi-Fi credentials at all: ESPHome would otherwise restart it on a
+provisioned device after `wifi_timeout` (90s) of outage. `improv_ble_wifi_timeout: 90s` restores that.
 
 **`improv_serial` opens the serial console itself.** Improv talks over the logger's port, and
 `core.yaml` defaults `logger_baud_rate` to `"0"`, which never opens it. Since `0` is the one rate
@@ -257,7 +258,7 @@ native one), not on the **UART** port's USB-UART bridge. A board wired only thro
 `tests/validate/improv_serial_hds_v1_1.yaml` is the fixture for exactly this trade.
 
 **`improv_ble` pins `authorizer: none`**, so any phone in range may give Wi-Fi credentials to a
-device that is not yet on a network — nothing more, unlike the fallback AP — and it is the only
+device that has none — nothing more, unlike the fallback AP — and it is the only
 setting that works for a board with no button exposed. A room that has a button and wants a physical press in the loop
 overrides `esp32_improv:` in its own config with an `authorizer:` naming that binary sensor.
 

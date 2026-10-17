@@ -6,7 +6,7 @@
 # stack.
 #
 # `authorizer` is REQUIRED by ESPHome and is pinned to `none` here, meaning any phone in range may
-# give Wi-Fi credentials to a device that is not yet on a network. That is all it grants -- unlike
+# give Wi-Fi credentials to a device that has none. That is all it grants -- unlike
 # the fallback AP's captive portal (`wifi_ap.yaml`), Improv carries no firmware upload -- and it is
 # the only setting that works for a board with no button exposed. A room that has
 # a button and wants provisioning gated behind a physical press overrides `esp32_improv:` in its own
@@ -16,7 +16,13 @@
 # close to its app partition will fail to link rather than fail to validate, so the real compile in
 # `release-gate.yml` is what proves it fits, not `esphome config`.
 #
-# BLE provisioning starts only after Wi-Fi has failed to connect (ESPHome's `wifi_timeout`, 90s by
-# default), so a device that joins a known network never advertises it.
+# ESPHome 2026.9.1 also restarts advertising on a PROVISIONED device once Wi-Fi has been down for
+# `wifi_timeout`, so with no authorizer a router outage would let anyone in range re-point it. The
+# default is the largest uint32 in ms, which ESPHome's elapsed-time check can never exceed: only a
+# device with no credentials advertises. Set `improv_ble_wifi_timeout: 90s` to accept that exposure.
+substitutions:
+  improv_ble_wifi_timeout: 4294967295ms
+
 esp32_improv:
   authorizer: none
+  wifi_timeout: ${improv_ble_wifi_timeout}
