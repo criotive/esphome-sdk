@@ -71,7 +71,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install ESPHome ${{ env.ESPHOME_VERSION }}
         run: pip install "esphome==${ESPHOME_VERSION}"
