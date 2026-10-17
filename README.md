@@ -24,20 +24,20 @@ esp32:
 packages:
   criotive:
     url: https://github.com/criotive/esphome-sdk
-    ref: v0.4.0
+    ref: v0.5.0
     files:
       - path: modules/core.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
       - path: modules/ciotcfg.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
       - path: modules/wifi.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
       - path: modules/criotive_mqtt.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
       - path: modules/ota.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
       - path: modules/improv_serial.yaml
-        vars: {sdk_ref: v0.4.0}
+        vars: {sdk_ref: v0.5.0}
 
 # The device's own entities. Each publishes under the ESPHome object_id of its name:
 # "Chip Temp" -> sensor/chip_temp (see "What each module publishes").

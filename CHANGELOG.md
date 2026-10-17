@@ -1,27 +1,25 @@
 # Changelog
 
-## [0.4.1](https://github.com/junioteixeira/test-esphome-sdk/compare/v0.4.0...v0.4.1) (2026-10-17)
+## [0.4.1](https://github.com/criotive/esphome-sdk/compare/v0.4.0...v0.4.1) (2026-10-17)
 
 
 ### Features
 
-* **api:** Home Assistant's native API, keyed by its first client and never rebooting for lack of one ([c63cda1](https://github.com/junioteixeira/test-esphome-sdk/commit/c63cda162f503bd7270457c50877fe864a8b6e84))
-* Home Assistant's native API and a deep-sleep cycle as optional modules ([9bf1626](https://github.com/junioteixeira/test-esphome-sdk/commit/9bf1626d6f5886098eaaf9c6761c1e5b52f6b772))
-* **sleep:** a deep-sleep cycle that never sleeps through an unconfirmed update, with a Stay Awake switch ([3c6a365](https://github.com/junioteixeira/test-esphome-sdk/commit/3c6a36586356377169e62ceed27b3c8cfc6a1011))
+* **api:** Home Assistant's native API, keyed by its first client and never rebooting for lack of one ([c63cda1](https://github.com/criotive/esphome-sdk/commit/c63cda162f503bd7270457c50877fe864a8b6e84))
+* **sleep:** a deep-sleep cycle that never sleeps through an unconfirmed update, with a Stay Awake switch ([3c6a365](https://github.com/criotive/esphome-sdk/commit/3c6a36586356377169e62ceed27b3c8cfc6a1011))
 
 
 ### Bug Fixes
 
-* **sdk:** run the SDK's boot actions from sdk_boot, which a device's on_boot cannot replace ([4b35e0d](https://github.com/junioteixeira/test-esphome-sdk/commit/4b35e0d453abcd975bebaecd76d3d48d894b33c6))
-* **sdk:** run the SDK's boot actions from sdk_boot, which a device's on_boot cannot replace ([72413ab](https://github.com/junioteixeira/test-esphome-sdk/commit/72413ab7715989b50f4f5a5cf02dbd597d791a8d))
+* **sdk:** run the SDK's boot actions from sdk_boot, which a device's on_boot cannot replace ([72413ab](https://github.com/criotive/esphome-sdk/commit/72413ab7715989b50f4f5a5cf02dbd597d791a8d))
 
 
 ### Documentation
 
-* **readme:** the native API and deep-sleep modules ([a8d35c1](https://github.com/junioteixeira/test-esphome-sdk/commit/a8d35c14bbdc96a2805edb5ce19c4faa21b85e6d))
-* **readme:** why the SDK's boot actions run from sdk_boot ([4faa1e7](https://github.com/junioteixeira/test-esphome-sdk/commit/4faa1e7755b244c7bd7f9630ab7478353e8c3118))
+* **readme:** the native API and deep-sleep modules ([a8d35c1](https://github.com/criotive/esphome-sdk/commit/a8d35c14bbdc96a2805edb5ce19c4faa21b85e6d))
+* **readme:** why the SDK's boot actions run from sdk_boot ([4faa1e7](https://github.com/criotive/esphome-sdk/commit/4faa1e7755b244c7bd7f9630ab7478353e8c3118))
 
-## [0.4.0](https://github.com/junioteixeira/test-esphome-sdk/compare/v0.3.4...v0.4.0) (2026-10-04)
+## [0.4.0](https://github.com/criotive/esphome-sdk/compare/v0.3.4...v0.4.0) (2026-10-04)
 
 
 ### ⚠ BREAKING CHANGES
@@ -33,28 +31,25 @@
 
 ### Features
 
-* **ciotcfg:** read the per-device MQTT identity from a flash partition ([6f3df07](https://github.com/junioteixeira/test-esphome-sdk/commit/6f3df0799a71c4487c978efa06061b330f746966))
-* **ciotcfg:** read the per-device MQTT identity from a flash partition ([dc9144c](https://github.com/junioteixeira/test-esphome-sdk/commit/dc9144c0cbfb78fdf6e3b6e1ef4ae64fe7339c62))
-* **improv:** provision over BLE with esp32_improv ([0b4dcdd](https://github.com/junioteixeira/test-esphome-sdk/commit/0b4dcdd182a56e8fdd7bac7665bb4c20ebdd0c27))
-* **improv:** provision over the serial cable with improv_serial ([8c58f02](https://github.com/junioteixeira/test-esphome-sdk/commit/8c58f02b6e0ed9709e2d3ff6857558309165b57b))
-* **improv:** provisioning over the serial cable and over BLE ([02f5c1c](https://github.com/junioteixeira/test-esphome-sdk/commit/02f5c1c4b4a018708cb33d652cee678f9710247e))
-* **mqtt:** take the broker, credentials and CA from the ciotcfg partition ([0dbe39a](https://github.com/junioteixeira/test-esphome-sdk/commit/0dbe39ae21e9209ba95fdd503b783096757bf073))
-* **ota:** fetch the command url without credentials and keep it out of the logs ([719c939](https://github.com/junioteixeira/test-esphome-sdk/commit/719c9395b496430eb8738d1a99438ac5bb84d108))
-* **ota:** flash from an mqtt command carrying a ticketed url ([fc849f3](https://github.com/junioteixeira/test-esphome-sdk/commit/fc849f3d7f06bfcacc934fef5266142a6a81b88f))
-* **ota:** flash from an mqtt command carrying a ticketed url ([be359e5](https://github.com/junioteixeira/test-esphome-sdk/commit/be359e52cbfc89de1d29ca619d3718cd785dd6c9))
-* **wifi:** move the fallback access point into an opt-in wifi_ap module ([7e2353f](https://github.com/junioteixeira/test-esphome-sdk/commit/7e2353f30f0a9a24f6c0f3c502ee6123e9ee6000))
+* **ciotcfg:** read the per-device MQTT identity from a flash partition ([dc9144c](https://github.com/criotive/esphome-sdk/commit/dc9144c0cbfb78fdf6e3b6e1ef4ae64fe7339c62))
+* **improv:** provision over BLE with esp32_improv ([0b4dcdd](https://github.com/criotive/esphome-sdk/commit/0b4dcdd182a56e8fdd7bac7665bb4c20ebdd0c27))
+* **improv:** provision over the serial cable with improv_serial ([8c58f02](https://github.com/criotive/esphome-sdk/commit/8c58f02b6e0ed9709e2d3ff6857558309165b57b))
+* **mqtt:** take the broker, credentials and CA from the ciotcfg partition ([0dbe39a](https://github.com/criotive/esphome-sdk/commit/0dbe39ae21e9209ba95fdd503b783096757bf073))
+* **ota:** fetch the command url without credentials and keep it out of the logs ([719c939](https://github.com/criotive/esphome-sdk/commit/719c9395b496430eb8738d1a99438ac5bb84d108))
+* **ota:** flash from an mqtt command carrying a ticketed url ([be359e5](https://github.com/criotive/esphome-sdk/commit/be359e52cbfc89de1d29ca619d3718cd785dd6c9))
+* **wifi:** move the fallback access point into an opt-in wifi_ap module ([7e2353f](https://github.com/criotive/esphome-sdk/commit/7e2353f30f0a9a24f6c0f3c502ee6123e9ee6000))
 
 
 ### Bug Fixes
 
-* **logger:** use each variant's own console and let improv_serial open it ([46c8b0b](https://github.com/junioteixeira/test-esphome-sdk/commit/46c8b0b379a5599b615e0afafe3dd028801c0568))
-* **sdk:** fetch every module's components from the repository that publishes its tags ([8c37402](https://github.com/junioteixeira/test-esphome-sdk/commit/8c37402e2bae91275c7d069847bb6f71c0e9568f))
+* **logger:** use each variant's own console and let improv_serial open it ([46c8b0b](https://github.com/criotive/esphome-sdk/commit/46c8b0b379a5599b615e0afafe3dd028801c0568))
+* **sdk:** fetch every module's components from the repository that publishes its tags ([8c37402](https://github.com/criotive/esphome-sdk/commit/8c37402e2bae91275c7d069847bb6f71c0e9568f))
 
 
 ### Documentation
 
-* **readme:** the recommended main.yaml, what each module publishes, and the OTA route ([2158633](https://github.com/junioteixeira/test-esphome-sdk/commit/2158633dc569d8977b6b57da8228dd7ed8a500ed))
-* **readme:** the two Improv routes next to the captive portal ([e546a5d](https://github.com/junioteixeira/test-esphome-sdk/commit/e546a5de46556316deb7ed15cd52d8f295c9dc05))
+* **readme:** the recommended main.yaml, what each module publishes, and the OTA route ([2158633](https://github.com/criotive/esphome-sdk/commit/2158633dc569d8977b6b57da8228dd7ed8a500ed))
+* **readme:** the two Improv routes next to the captive portal ([e546a5d](https://github.com/criotive/esphome-sdk/commit/e546a5de46556316deb7ed15cd52d8f295c9dc05))
 
 ## [0.3.4](https://github.com/criotive/esphome-sdk/compare/v0.3.3...v0.3.4) (2026-08-25)
 
