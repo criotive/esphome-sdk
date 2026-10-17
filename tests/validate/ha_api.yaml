@@ -1,0 +1,19 @@
+# Fixture: the native API with no key, as the module ships it — encryption the first client keys.
+substitutions:
+  device_name: ha-api-testdev
+  firmware_version: "0.0.0-test"
+  wifi_ssid: test-ssid
+  wifi_password: test-wifi-password
+
+packages:
+  criotive:
+    url: https://github.com/junioteixeira/test-esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: hardware/hds_v1_0.yaml
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ha_api.yaml
+        vars: {sdk_ref: __SDK_REF__}
