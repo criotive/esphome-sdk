@@ -12,9 +12,9 @@
 
 namespace esphome::ciotcfg {
 
-/// Wire format of the record, mirrored by DemoFirmwareConfigBlob.cs on the platform side. The two
+/// Wire format of the record, mirrored by DeviceConfigBlob.cs on the platform side. The two
 /// are one format described in two languages: a change to either needs a FORMAT_VERSION bump in
-/// both, and a device rejects a record whose version is newer than this.
+/// both, and a device rejects a record whose version is 0 or newer than this.
 ///
 /// 0x00  4  magic "CIOT"
 /// 0x04  2  format version
@@ -35,7 +35,7 @@ class CiotCfg : public Component {
   void setup() override;
   void dump_config() override;
 
-  /// BUS (1.0) rather than the default, because MQTT sets up at AFTER_WIFI (-1.0) and ESPHome runs
+  /// BUS (1000) rather than the default, because MQTT sets up at AFTER_WIFI (200) and ESPHome runs
   /// higher priorities first. Every value this writes must already be in place by then.
   float get_setup_priority() const override { return setup_priority::BUS; }
 

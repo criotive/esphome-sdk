@@ -12,6 +12,7 @@
 #include <cinttypes>
 #include <cstring>
 #include <memory>
+#include <new>
 
 namespace esphome::ciotcfg {
 
@@ -99,8 +100,8 @@ bool CiotCfg::load_() {
   memcpy(&payload_length, header + 8, sizeof(payload_length));
   memcpy(&expected_crc, header + 12, sizeof(expected_crc));
 
-  if (version > FORMAT_VERSION) {
-    ESP_LOGE(TAG, "record format v%u is newer than this firmware understands (v%u)", version, FORMAT_VERSION);
+  if (version == 0 || version > FORMAT_VERSION) {
+    ESP_LOGE(TAG, "record format v%u is not one this firmware understands (v%u)", version, FORMAT_VERSION);
     return false;
   }
 
@@ -109,8 +110,14 @@ bool CiotCfg::load_() {
     return false;
   }
 
-  // Only the declared payload is pulled into RAM; the partition itself is far larger.
-  std::unique_ptr<uint8_t[]> payload(new uint8_t[payload_length]);
+  // Only the declared payload is pulled into RAM; the partition itself is far larger. nothrow,
+  // because the length is not yet CRC-checked and the build has no exceptions: a throwing new that
+  // fails aborts, and a corrupt length would then boot-loop the device instead of failing closed.
+  std::unique_ptr<uint8_t[]> payload(new (std::nothrow) uint8_t[payload_length]);
+  if (!payload) {
+    ESP_LOGE(TAG, "no memory for a %" PRIu32 "-byte record payload", payload_length);
+    return false;
+  }
   err = esp_partition_read(partition, HEADER_SIZE, payload.get(), payload_length);
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "could not read the record payload: %s", esp_err_to_name(err));
