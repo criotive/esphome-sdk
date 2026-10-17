@@ -9,6 +9,8 @@ esphome:
   name: "${ device_name if device_name is defined else 1/0 }"
   # The 1/0 guard makes a missing required value fail validation.
   comment: "criotive SDK ${ sdk_ref if sdk_ref is defined else 1/0 }"
+  # ota.yaml's safe_mode boot_is_good_on_shutdown first shipped in 2026.8.0.
+  min_version: 2026.8.0
 
 external_components:
   - source:

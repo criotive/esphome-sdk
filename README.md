@@ -581,6 +581,19 @@ safe mode triggers, far beyond any normal power event. The `check-rollback-timin
 build if `boot_is_good_after` ever drops to or below the watchdog delay, so the confirmation ordering
 can never silently regress.
 
+The second early confirmer is an orderly shutdown. Since ESPHome 2026.8.0, `safe_mode`'s
+`boot_is_good_on_shutdown` defaults to `true` and confirms the running image on any restart, deep
+sleep or factory reset (`safe_mode.cpp`, `on_safe_shutdown`) — so pressing a restart button on an
+image that never reached the broker would keep it. `ota.yaml` sets it to `false`, which is why the SDK
+requires ESPHome 2026.8.0 or later (`core.yaml` `min_version`). `deep_sleep.yaml` already refuses to
+sleep while an image is pending verification, so the cycle never rolls back an update on wake.
+
+**Safe mode has no update route.** After `num_attempts` failed boots ESPHome enters safe mode, which
+sets up only the components ahead of `safe_mode` itself — not Wi-Fi-dependent MQTT, the API or
+`ciotcfg`. With `ota_password` empty the native OTA port is gone too, so a device in safe mode can
+only reboot out of it after five minutes; recovering an image that boot-loops after confirming takes
+a serial flash. A device that must be recoverable over the LAN sets `ota_password`.
+
 ## `${sdk_ref}` — pinning the components with the YAML
 
 ESPHome treats `packages:` and `external_components:` as **independent** git sources: a module

@@ -14,6 +14,10 @@ safe_mode:
   num_attempts: ${ota_attempts}
   # Must exceed the 300s rollback watchdog.
   boot_is_good_after: 330s
+  # ESPHome 2026.8+ defaults to true, which confirms the running image on any orderly restart: a
+  # restart button, SW1 or a factory reset would then keep an image that never reached the broker.
+  # Only the MQTT connection (criotive_mqtt on_connect) may confirm it.
+  boot_is_good_on_shutdown: false
 
 external_components:
   - source:
@@ -71,7 +75,7 @@ ota:
           switch (x) {
             case 0x10: reason = "md5 is not a valid digest"; break;
             case 0x11: reason = "url is not http(s)"; break;
-            case 0x12: reason = "download failed: no connection, HTTP error status or read error"; break;
+            case 0x12: reason = "download failed: no connection, TLS verification, HTTP error status or read error"; break;
             case 0x89: reason = "image does not fit the app partition"; break;
             case 0x8B: reason = "image does not match the md5"; break;
             default: reason = "update rejected by the OTA backend"; break;
@@ -81,7 +85,9 @@ ota:
           id(ota_status).publish_state(buffer);
 
 http_request:
-  verify_ssl: false  # TODO: turn this on
+  # The url's ticket is the only credential on the download, so the server must be authenticated.
+  # ESP-IDF verifies against its built-in CA bundle; ESPHome's Arduino client never verifies.
+  verify_ssl: true
   timeout: ${ota_http_timeout}
   # No `watchdog_timeout:` -- do not add one. WatchdogManager *assigns* it for
   # the request (no max against the current value), so against the boards' own
