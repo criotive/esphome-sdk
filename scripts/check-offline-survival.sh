@@ -5,8 +5,8 @@
 # THE INVARIANT (product requirement, see README + modules/core.yaml): a device MUST continue
 # operating indefinitely while offline, WITHOUT rebooting. Field devices on unreliable uplinks must
 # ride out an outage rather than power-cycle through it. In
-# ESPHome, `reboot_timeout: 0s` DISABLES the connectivity reboot outright (both wifi and mqtt guard
-# App.reboot() with `reboot_timeout_ != 0`), so both timeouts default to 0s here. ESPHome's stock
+# ESPHome, `reboot_timeout: 0s` DISABLES the connectivity reboot outright (wifi, mqtt and api all guard
+# App.reboot() with `reboot_timeout_ != 0`), so every such timeout defaults to 0s here. ESPHome's stock
 # default is 15min. This gate fails the build if any `reboot_timeout` under modules/ or hardware/
 # resolves to a NON-ZERO default, so the regression can never silently return.
 #
@@ -14,7 +14,7 @@
 #   (a) every `reboot_timeout:` key resolves to a ZERO default. A literal duration must be zero; a
 #       `${substitution}` reference is resolved to that substitution's in-file default. Zero means a
 #       numeric value of 0 in any unit (0, 0s, 0ms, 0.0s); "0.5s", "15min", "500ms" are NON-zero.
-#   (b) every declared CONNECTIVITY COMPONENT (`wifi:` / `mqtt:`) wires an active `reboot_timeout`
+#   (b) every declared CONNECTIVITY COMPONENT (`wifi:` / `mqtt:` / `api:`) wires an active `reboot_timeout`
 #       key INSIDE ITS OWN BLOCK. Otherwise deleting/commenting the key silently restores ESPHome's
 #       non-zero stock default (15min) and the gate would go blind. Scoped per-component so a file
 #       carrying both wifi and mqtt cannot satisfy mqtt with wifi's key.
@@ -34,7 +34,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Connectivity components whose reboot_timeout the offline invariant depends on.
-CONNECTIVITY_COMPONENTS="wifi mqtt"
+CONNECTIVITY_COMPONENTS="wifi mqtt api"
 
 # ── low-level value helpers ───────────────────────────────────────────────────────────────────
 
@@ -263,6 +263,20 @@ wifi:
   password: x
 YAML
   _expect pass "$tmp" "direct-child reboot_timeout alongside a block scalar accepted" || rc=1
+
+  # BAD 10: the native API with no reboot_timeout inherits ESPHome's 15min with no client connected.
+  printf 'api:
+  encryption: {}
+' >"$tmp/modules/wifi.yaml"
+  _expect fail "$tmp" "api component missing reboot_timeout rejected" || rc=1
+
+  # GOOD 4: the native API wiring its own 0s default.
+  printf 'substitutions:
+  api_reboot_timeout: 0s
+api:
+  reboot_timeout: ${api_reboot_timeout}
+' >"$tmp/modules/wifi.yaml"
+  _expect pass "$tmp" "api component with a 0s substitution default accepted" || rc=1
 
   rm -rf "$tmp"
   if [ "$rc" -eq 0 ]; then echo "self-test: all cases passed"; fi
