@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.5.0](https://github.com/criotive/esphome-sdk/compare/v0.4.1...v0.5.0) (2026-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ota:** the SDK requires ESPHome 2026.8.0 or later; core.yaml sets min_version, so an older ESPHome refuses the config. An OTA url must be served with a certificate the ESP-IDF CA bundle trusts.
+* **ota:** controls.yaml no longer publishes system_restart_safe_mode.
+* **ciotcfg:** the ciotcfg row is type 0x40, subtype 0x00. A device flashed with a 0.4.x image (data, subtype 0x40) does not find its record and keeps MQTT off until it is reflashed.
+* **sdk:** a config whose esp32 framework is arduino no longer validates; set `esp32: framework: type: esp-idf`.
+* **sdk:** modules/ha_api.yaml and its api_reboot_timeout substitution are gone. A config that imports the module must drop it.
+* **core:** device_name is now at most 24 characters, and the hostname, mDNS name and discovery node id carry the MAC suffix.
+* **improv:** a provisioned device no longer starts BLE, not even after a Wi-Fi outage. Re-provision it over the serial cable or after a factory reset.
+
+### Features
+
+* **sdk:** build with ESP-IDF only ([4403a35](https://github.com/criotive/esphome-sdk/commit/4403a354fda70287678a995915032005b39b21be))
+* **sdk:** remove the Home Assistant native API module ([0e62116](https://github.com/criotive/esphome-sdk/commit/0e62116be2845730a26fd997132cf2203fb3e709))
+
+
+### Bug Fixes
+
+* **ciotcfg:** fail closed on a record that cannot be allocated, and check the partition row ([af32249](https://github.com/criotive/esphome-sdk/commit/af322497ba6092891367f9cace0d2055e612a5e1))
+* **ciotcfg:** give the partition a type of its own, 0x40 ([d63bcc8](https://github.com/criotive/esphome-sdk/commit/d63bcc834737448c5d9c86583434a8b4131d261e))
+* **core:** append the MAC to the device name ([b68e0d5](https://github.com/criotive/esphome-sdk/commit/b68e0d57e1c91f633ee0fbce5ceba127df282990))
+* **improv:** run the BLE stack only while a device has no Wi-Fi credentials ([60918b3](https://github.com/criotive/esphome-sdk/commit/60918b395079d4a1bed758a5a65b6a42b60969fa))
+* **ota:** confirm an update only from the broker, and verify the download's TLS ([0a7e719](https://github.com/criotive/esphome-sdk/commit/0a7e719e74ec916251a2060a4eaf5388c1c5ccad))
+* **ota:** fall back to the previous confirmed image on a boot loop ([336b37f](https://github.com/criotive/esphome-sdk/commit/336b37fb7838cb9c2d42819c1a16c6b44dfe61c4))
+* **ota:** report a malformed ota command instead of ignoring it ([b540cd5](https://github.com/criotive/esphome-sdk/commit/b540cd5da5e1de2b96a234f6afc347850a9af69a))
+* **sdk:** fetch modules and components from criotive/esphome-sdk ([f77b115](https://github.com/criotive/esphome-sdk/commit/f77b11595c684f34eabc016ede4b4503afa21485))
+* **sleep:** check again before sleeping, after the second that publishes Stay Awake ([a3fcde7](https://github.com/criotive/esphome-sdk/commit/a3fcde764cd0b40da710c39b5367eb1f6af64d36))
+
+
+### Documentation
+
+* pin the README example to v0.5.0 and point the changelog at this repository ([10b624e](https://github.com/criotive/esphome-sdk/commit/10b624efa172584492e5aaacb6f4bff1942b7e94))
+
 ## [0.4.1](https://github.com/criotive/esphome-sdk/compare/v0.4.0...v0.4.1) (2026-10-17)
 
 
