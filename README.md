@@ -14,7 +14,7 @@ the air. It needs **one substitution, `device_name`** — the platform's build i
 
 ```yaml
 substitutions:
-  device_name: greenhouse-1   # lower-case letters, digits and hyphens; unique per device
+  device_name: greenhouse   # lower-case letters, digits and hyphens, at most 24; the MAC is appended
 
 esp32:
   board: esp32-s3-devkitc-1   # or esp32dev, esp32-c3-devkitm-1, ...
@@ -109,7 +109,7 @@ opt-in composition. A device compiles only the modules it imports.
 
 | Substitution | Required | Default | Notes |
 |---|---|---|---|
-| `device_name` | **yes** | — | ESPHome node name; also the MQTT topic prefix |
+| `device_name` | **yes** | — | ESPHome node name, at most 24 characters; ESPHome appends `-aabbcc` from the MAC. The MQTT topic prefix comes from `ciotcfg` |
 | `firmware_version` | **yes** | — | published as a text sensor |
 | `sdk_ref` | **yes** | — | must equal the package `ref`; CI-enforced |
 | `wifi_ssid` | no | *(empty)* | *(`wifi.yaml`)* station slot 1 — see **Up to three WiFi networks** |

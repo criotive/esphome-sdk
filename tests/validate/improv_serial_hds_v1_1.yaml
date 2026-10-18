@@ -3,7 +3,7 @@
 # disabled here, and that is the whole point of the fixture. The baud rate is set explicitly to
 # prove improv_serial keeps a non-zero rate a device chose instead of replacing it with its own.
 substitutions:
-  device_name: improv-serial-hds-v11-testdev
+  device_name: improv-serial-hds11-test
   firmware_version: "0.0.0-test"
   logger_level: INFO
   logger_baud_rate: "115200"

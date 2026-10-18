@@ -5,7 +5,7 @@
 # (ESPHome's own `-s` always yields strings) cannot produce a YAML boolean. Sibling:
 # hds_v1_1_sw1.yaml, which exercises the enabled default.
 substitutions:
-  device_name: hds-v1-1-sw1-disabled-testdev
+  device_name: hds-v1-1-sw1-off-testdev
   firmware_version: "0.0.0-test"
   hds_v1_1_sw1_enabled: "false"
   logger_level: INFO
