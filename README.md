@@ -91,10 +91,8 @@ Supported hardware:
 | `hds_v1_0` | `pico32` | `esp32` | `${framework_variant}` (default esp-idf) |
 | `hds_v1_1` | `esp32dev` | `esp32` | `${framework_variant}` (default esp-idf) |
 
-Each board is a single file whose esp32 framework is the `framework_variant` substitution, so one
-board file serves both frameworks. The default is **esp-idf**; a device that wants the arduino
-toolchain sets `framework_variant: arduino` (see "Hardware modules" below). Board and variant stay
-concrete.
+Each board's esp32 framework is the `framework_variant` substitution, which must stay **esp-idf**:
+the SDK refuses an Arduino build (see "Hardware modules" below). Board and variant stay concrete.
 
 ## Substitution contract
 
@@ -1021,40 +1019,14 @@ visual feedback and drives those LED ids itself — no module reaches into a har
 these boards has indicator LEDs, so none ships OTA LED feedback and `ota.yaml` keeps no reference to
 any hardware id.
 
-#### Framework selection — `framework_variant`
+#### Framework — ESP-IDF only
 
-Board and variant are concrete, but the build **framework** is a per-device choice, so it is a single
-`framework_variant` substitution consumed inside the board file's own `esp32.framework.type` rather
-than a doubled `_idf` board file. `core.yaml` declares the DEFAULT (`framework_variant: esp-idf`); a
-device overrides it per device with `framework_variant: arduino`. One board file therefore serves both
-frameworks, and the board/variant/framework stay a single logical block in one place. The valid tokens
-are `esp-idf` and `arduino`; substitution is textual and runs before schema validation, so the
-resolved literal is what the esp32 schema checks — the same mechanism `can_resistor_status` already
-uses.
-
-**The default is `esp-idf`.** Earlier revisions of these board files defaulted to arduino; a device
-that relied on that must now set `framework_variant: arduino` explicitly. The framework choice has one
-behavioural consequence in the shared modules: `ota.yaml`'s post-boot **rollback watchdog and
-`criotive_mqtt.yaml`'s MQTT confirmation are both compiled inside `#ifdef USE_ESP_IDF`**. So on an
-**arduino** build they are compiled out entirely and the build carries no post-OTA rollback
-protection; on an **esp-idf** build they are active and guard a freshly-flashed image (see the OTA
-rollback section). Because the default is esp-idf, a default build ships that protection; a device
-that opts into arduino gives it up.
-
-The rollback SUPPORT flag itself — `esp32: framework: advanced: enable_ota_rollback` — is NOT
-esp-idf-only, however. ESPHome 2026.5.1 emits its `USE_OTA_ROLLBACK` define and
-`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE` sdkconfig option for **both** frameworks (the
-`enable_ota_rollback` branch in `components/esp32/__init__.py`'s `to_code` runs unconditionally, not
-under the esp-idf-only branch). `USE_OTA_ROLLBACK` makes `esp32/hal.cpp` defer boot-time image
-confirmation to `safe_mode` and arms bootloader rollback. If it were left on for arduino — where the
-watchdog and the broker's confirmation are compiled out — a healthy freshly-flashed image that
-power-cycled within `boot_is_good_after` would be rolled back by the bootloader with nothing able to
-confirm it early. So the board files drive `enable_ota_rollback` from the **`ota_rollback`
-substitution** (default `true`), and an **arduino device must pair `framework_variant: arduino` with
-`ota_rollback: false`** — leaving `USE_OTA_ROLLBACK` undefined so `hal.cpp` confirms at boot and no
-rollback machinery is compiled at all. Rollback protection therefore lives only on esp-idf, as stated.
-The `framework_variant: arduino` validate fixture exercises exactly that pairing, and the default
-(esp-idf) fixtures cover the rollback path; release CI compiles each for real.
+The SDK builds with **ESP-IDF** and nothing else: `components/sdk_boot`, which `core.yaml` always
+loads, refuses a config whose framework is Arduino. Bootloader rollback (`enable_ota_rollback`, the
+`#ifdef USE_ESP_IDF` watchdog and broker confirmation), TLS verification of the OTA download
+(ESPHome's Arduino HTTP client never verifies) and every fixture assume it. `framework_variant` and
+`ota_rollback` remain substitutions so existing configs that reference them keep resolving; their
+defaults, `esp-idf` and `true`, are the only supported values.
 
 #### SW1 / GPIO1 — gated by a compile-time flag
 

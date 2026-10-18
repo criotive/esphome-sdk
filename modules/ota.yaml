@@ -38,7 +38,7 @@ logger:
     # The platform's OTA url carries a single-use ticket in its query string,
     # and the platform ingests what a device logs. ESPHome 2026.9.1 prints a
     # failing request's full url under `http_request` (http_request_idf.cpp:221
-    # at ERROR; http_request_arduino.cpp:85,142,150) and the OTA url under
+    # at ERROR) and the OTA url under
     # `http_request.ota` at INFO (ota_http_request.cpp:95). A tag may not be
     # more verbose than the global level, so http_request.ota follows
     # logger_level down to WARN and never past it.
@@ -87,7 +87,7 @@ ota:
 
 http_request:
   # The url's ticket is the only credential on the download, so the server must be authenticated.
-  # ESP-IDF verifies against its built-in CA bundle; ESPHome's Arduino client never verifies.
+  # ESP-IDF verifies against its built-in CA bundle.
   verify_ssl: true
   timeout: ${ota_http_timeout}
   # No `watchdog_timeout:` -- do not add one. WatchdogManager *assigns* it for

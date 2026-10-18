@@ -2,7 +2,6 @@ substitutions:
   logger_level: NONE
   logger_baud_rate: "0" # Serial off by default; frees GPIO1.
   framework_variant: esp-idf
-  # Arduino builds must set this to "false".
   ota_rollback: "true"
 
 esphome:

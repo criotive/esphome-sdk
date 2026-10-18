@@ -7,7 +7,7 @@ substitutions:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 packages:
   core: !include ../../modules/core.yaml

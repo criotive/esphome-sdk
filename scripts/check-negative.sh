@@ -76,7 +76,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 logger:
   level: ${undefined_substitution}
 YAML
@@ -94,7 +94,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 YAML
   if scan_dir "$tmp/tests/negative" >/dev/null 2>&1; then
     echo "self-test: FAILED — a passing fixture was NOT flagged as a violation"; rc=1
@@ -111,7 +111,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 external_components:
   - source:
       type: git

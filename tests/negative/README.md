@@ -15,7 +15,7 @@ Two kinds of rule live here:
 - **Component invariants** — a rule a component enforces in its own `CONFIG_SCHEMA`, which has no
   substitution to omit. `ack_button_shared_topic.yaml` and `ack_button_wildcard_topic.yaml` are the
   first: an `ack_button` whose acknowledgement would land back on its own subscription must not
-  validate. These are named after the component and the invariant, never `omit_*`, so the parity
+  validate. `sdk_boot_arduino_framework.yaml` is another: the SDK refuses an Arduino build. These are named after the component and the invariant, never `omit_*`, so the parity
   gate keeps ignoring them. They source the component through a **local** `external_components`
   path and write the rest of the device out in full, importing no module: `modules/ack_button.yaml`
   fetches the component over git, and so does `core.yaml` (for `sdk_boot`) — a fixture that failed

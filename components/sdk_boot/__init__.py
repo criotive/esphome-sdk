@@ -19,6 +19,7 @@ import esphome.automation as automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import CONF_PRIORITY, CONF_TRIGGER_ID
+from esphome.core import CORE
 
 CODEOWNERS = ["Junio Teixeira"]
 MULTI_CONF = True
@@ -27,12 +28,26 @@ StartupTrigger = cg.esphome_ns.class_(
     "StartupTrigger", cg.Component, automation.Trigger.template()
 )
 
-CONFIG_SCHEMA = automation.validate_automation(
-    {
-        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(StartupTrigger),
-        cv.Optional(CONF_PRIORITY, default=600.0): cv.float_,
-    },
-    single=True,
+def _require_esp_idf(config):
+    """core.yaml loads this component, so every SDK config passes through here."""
+    if CORE.using_arduino:
+        raise cv.Invalid(
+            "The criotive SDK builds with ESP-IDF only: set `esp32: framework: type: esp-idf`. "
+            "Bootloader rollback, TLS verification of the OTA download and the SDK's tests all "
+            "assume it."
+        )
+    return config
+
+
+CONFIG_SCHEMA = cv.All(
+    automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(StartupTrigger),
+            cv.Optional(CONF_PRIORITY, default=600.0): cv.float_,
+        },
+        single=True,
+    ),
+    _require_esp_idf,
 )
 
 
