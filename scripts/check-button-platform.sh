@@ -10,8 +10,8 @@
 # close that gap, and this gate is what stops the next module from reopening it.
 #
 # The rule is about visibility, not about the `button:` key. A blanket ban is not implementable:
-# `controls.yaml` needs `platform: shutdown` / `restart` / `safe_mode` / `factory_reset` to perform
-# the reboot and the wipe, which `ack_button` cannot do. Those four are `internal: true`, which is
+# `controls.yaml` needs `platform: shutdown` / `restart` / `factory_reset` to perform
+# the reboot and the wipe, which `ack_button` cannot do. Those three are `internal: true`, which is
 # precisely the statement "the platform never sees this": no discovery, no command topic, nothing
 # to acknowledge. They are the target of a visible `ack_button`, and that visible button is the one
 # the platform talks to.

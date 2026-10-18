@@ -563,11 +563,16 @@ image that never reached the broker would keep it. `ota.yaml` sets it to `false`
 requires ESPHome 2026.8.0 or later (`core.yaml` `min_version`). `deep_sleep.yaml` already refuses to
 sleep while an image is pending verification, so the cycle never rolls back an update on wake.
 
-**Safe mode has no update route.** After `num_attempts` failed boots ESPHome enters safe mode, which
-sets up only the components ahead of `safe_mode` itself — not Wi-Fi-dependent MQTT, the API or
-`ciotcfg`. With `ota_password` empty the native OTA port is gone too, so a device in safe mode can
-only reboot out of it after five minutes; recovering an image that boot-loops after confirming takes
-a serial flash. A device that must be recoverable over the LAN sets `ota_password`.
+**A boot loop falls back to the previous image.** Rollback covers an image that never reaches the
+broker; it cannot help one that was confirmed and only later dies on every boot. ESPHome's answer,
+safe mode, gives this SDK nothing: it sets up only the components ahead of `safe_mode` itself — not
+MQTT or `ciotcfg` — and the native OTA port is closed. So after `num_attempts` (50) boots in a row that
+each end before `boot_is_good_after`, `ota.yaml`'s `on_safe_mode` boots the other app slot, provided
+that image was confirmed once (its OTA state is `ESP_OTA_IMG_VALID`). The device comes back on the
+previous version and the platform sees it report that. An empty, pending or rolled-back slot is left
+alone, and the device reboots out of safe mode after five minutes as ESPHome would. If both images
+loop — a hardware fault rather than a firmware one — the device alternates between them. There is no
+"restart into safe mode" control: a safe mode entered on purpose would fall back too.
 
 ## `${sdk_ref}` — pinning the components with the YAML
 
@@ -755,8 +760,8 @@ restructuring the others.
   platform. The split is what makes a remote press confirmable at all: the action platform
   reboots or wipes the device, and only the `ack_button` in front of it can publish that the
   press landed. The delay lets that publish reach the socket before the action kills the MQTT
-  client. Declares `ack_button`'s `external_components` and an empty `safe_mode:` itself, so
-  importing this module is enough; `ota.yaml`'s `safe_mode` settings win when both are imported.
+  client. Declares `ack_button`'s `external_components` itself, so importing this module is
+  enough.
 - `location.yaml` — `google_location`, its `ack_button` Location Request, and the
   `external_components` for both. It retains ESPHome's full connection scan, accepts the platform's
   `{"command":"fetch_location"}` system command on `command`, and publishes the result on
@@ -786,7 +791,6 @@ the MQTT component `sensor`, not `text_sensor`. An `internal: true` entity publi
 | `diagnostics.yaml` | Reset Reason | text_sensor (`sensor`) | `reset_reason` |
 | `controls.yaml` | System Shutdown | button (`ack_button`) | `system_shutdown` |
 | `controls.yaml` | System Restart | button (`ack_button`) | `system_restart` |
-| `controls.yaml` | System Restart Safe Mode | button (`ack_button`) | `system_restart_safe_mode` |
 | `controls.yaml` | System Factory Reset | button (`ack_button`) | `system_factory_reset` |
 | `location.yaml` | Location Request | button (`ack_button`) | `location_request` |
 | `deep_sleep.yaml` | Stay Awake | switch | `stay_awake` |
@@ -895,7 +899,7 @@ the entities themselves stay in the device's own config.
   `modules/` or `hardware/` is visible to the platform — that is, not `internal: true` — and is not
   an `ack_button`. `controls.yaml` is the shape to copy: a visible `ack_button` in front of an
   `internal: true` action platform. The rule is not a ban on the `button:` key, because
-  `platform: shutdown` / `restart` / `safe_mode` / `factory_reset` genuinely perform the reboot and
+  `platform: shutdown` / `restart` / `factory_reset` genuinely perform the reboot and
   the wipe that `ack_button` cannot; `internal: true` is what makes them invisible to the platform,
   and therefore exempt from having to answer it.
 

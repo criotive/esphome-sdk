@@ -18,6 +18,28 @@ safe_mode:
   # restart button, SW1 or a factory reset would then keep an image that never reached the broker.
   # Only the MQTT connection (criotive_mqtt on_connect) may confirm it.
   boot_is_good_on_shutdown: false
+  # Safe mode can do nothing for this SDK: MQTT and ciotcfg are set up after it, and the native OTA
+  # port is closed. So a boot loop -- num_attempts boots in a row that die before boot_is_good_after
+  # -- boots the other app slot instead, but only if that image was confirmed once (reached the
+  # broker). A slot that is empty, pending or rolled back is left alone, and the device waits out
+  # reboot_timeout as ESPHome would. esp_ota_set_boot_partition verifies the image first.
+  on_safe_mode:
+    - lambda: |-
+        const esp_partition_t *running = esp_ota_get_running_partition();
+        const esp_partition_t *other = esp_ota_get_next_update_partition(nullptr);
+        esp_ota_img_states_t state;
+        if (other == nullptr || other == running ||
+            esp_ota_get_state_partition(other, &state) != ESP_OK || state != ESP_OTA_IMG_VALID) {
+          ESP_LOGW("ota", "Boot loop, and no confirmed image in the other slot to fall back to");
+          return;
+        }
+        esp_err_t err = esp_ota_set_boot_partition(other);
+        if (err != ESP_OK) {
+          ESP_LOGE("ota", "Boot loop: cannot boot the previous image: %s", esp_err_to_name(err));
+          return;
+        }
+        ESP_LOGW("ota", "Boot loop: booting the previous confirmed image at 0x%" PRIX32, other->address);
+        App.reboot();
 
 external_components:
   - source:
