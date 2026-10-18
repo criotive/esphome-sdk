@@ -11,7 +11,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 logger:
 
@@ -107,7 +107,7 @@ phone:
 
 packages:
   criotive:
-    url: https://github.com/c-iot-systems/esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: __SDK_REF__
     files:
       - path: modules/phone.yaml

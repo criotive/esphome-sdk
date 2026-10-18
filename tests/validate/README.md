@@ -7,9 +7,10 @@ device uses. CI runs them two ways:
   toolchain. Catches what a package system actually breaks: duplicate ids when two modules define
   the same one, a module referencing a substitution nobody supplies, broken `github://` imports,
   post-merge schema violations.
-- **On release tag** (`release.yml`) — a real `esphome compile` over every `*.yaml` here.
-  `esphome config` validates a component's Python and schema but never compiles its C++, so a
-  component that does not build only surfaces here.
+- **On every PR** (`validate.yml`, `compile`) and **on main** (`release-gate.yml`; `release.yml` re-runs it on a tag) — a real
+  `esphome compile` over every `*.yaml` here, one job per fixture. `esphome config` validates a
+  component's Python and schema but never compiles its C++, so a component that does not build
+  only surfaces in a compile.
 
 Each task in the SDK plan owns its own fixture file(s); no task edits another task's fixture.
 
@@ -37,7 +38,7 @@ substitutions:
 
 packages:
   criotive:
-    url: https://github.com/c-iot-systems/esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: __SDK_REF__
     files:
       - path: modules/core.yaml

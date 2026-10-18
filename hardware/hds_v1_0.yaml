@@ -144,7 +144,6 @@ esp32:
   framework:
     type: ${framework_variant}
     advanced:
-      # Arduino builds require ota_rollback: "false".
       enable_ota_rollback: ${ota_rollback}
 
 switch:

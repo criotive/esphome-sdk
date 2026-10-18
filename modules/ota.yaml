@@ -1,6 +1,10 @@
 substitutions:
   ota_attempts: "50"
-  ota_http_server_test: ${ota_http_server}
+  # Empty removes the native ESPHome OTA port (3232) instead of opening it: an
+  # esphome OTA with no password lets anyone on the LAN flash the device, and
+  # through it read the ciotcfg partition's broker credentials. The platform's
+  # own update route is the MQTT `ota` command below, which needs no port.
+  ota_password: ""
   # ESPHome defaults to 4.5s, which also bounds the blocking
   # esp_http_client_open()/fetch_headers() before the download loop -- where an
   # OTA over a weak TLS link dies, after publishing "OTA start".
@@ -10,16 +14,64 @@ safe_mode:
   num_attempts: ${ota_attempts}
   # Must exceed the 300s rollback watchdog.
   boot_is_good_after: 330s
+  # ESPHome 2026.8+ defaults to true, which confirms the running image on any orderly restart: a
+  # restart button, SW1 or a factory reset would then keep an image that never reached the broker.
+  # Only the MQTT connection (criotive_mqtt on_connect) may confirm it.
+  boot_is_good_on_shutdown: false
+  # Safe mode can do nothing for this SDK: MQTT and ciotcfg are set up after it, and the native OTA
+  # port is closed. So a boot loop -- num_attempts boots in a row that die before boot_is_good_after
+  # -- boots the other app slot instead, but only if that image was confirmed once (reached the
+  # broker). A slot that is empty, pending or rolled back is left alone, and the device waits out
+  # reboot_timeout as ESPHome would. esp_ota_set_boot_partition verifies the image first.
+  on_safe_mode:
+    - lambda: |-
+        const esp_partition_t *running = esp_ota_get_running_partition();
+        const esp_partition_t *other = esp_ota_get_next_update_partition(nullptr);
+        esp_ota_img_states_t state;
+        if (other == nullptr || other == running ||
+            esp_ota_get_state_partition(other, &state) != ESP_OK || state != ESP_OTA_IMG_VALID) {
+          ESP_LOGW("ota", "Boot loop, and no confirmed image in the other slot to fall back to");
+          return;
+        }
+        esp_err_t err = esp_ota_set_boot_partition(other);
+        if (err != ESP_OK) {
+          ESP_LOGE("ota", "Boot loop: cannot boot the previous image: %s", esp_err_to_name(err));
+          return;
+        }
+        ESP_LOGW("ota", "Boot loop: booting the previous confirmed image at 0x%" PRIX32, other->address);
+        App.reboot();
 
-esphome:
-  on_boot:
-    - priority: 600
-      then:
-        - script.execute: script_rollback
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [sdk_boot]
+
+# Armed from `sdk_boot`, not `esphome: on_boot`: a device config's mapping-form
+# `on_boot` replaces that list, and a fresh image would then run unguarded.
+sdk_boot:
+  - priority: 600
+    then:
+      - script.execute: script_rollback
+
+logger:
+  logs:
+    # The platform's OTA url carries a single-use ticket in its query string,
+    # and the platform ingests what a device logs. ESPHome 2026.9.1 prints a
+    # failing request's full url under `http_request` (http_request_idf.cpp:221
+    # at ERROR) and the OTA url under
+    # `http_request.ota` at INFO (ota_http_request.cpp:95). A tag may not be
+    # more verbose than the global level, so http_request.ota follows
+    # logger_level down to WARN and never past it.
+    http_request: NONE
+    http_request.ota: "${ logger_level | upper if logger_level | upper in ['NONE', 'ERROR', 'WARN'] else 'WARN' }"
 
 ota:
   - platform: esphome
-    password: "${ ota_password if ota_password is defined else 1/0 }"
+    id: ota_esphome
+    password: ${ota_password}
+  - id: !remove '${"ota_esphome" if not ota_password else false}'
 
   - platform: http_request
     on_begin:
@@ -37,45 +89,33 @@ ota:
           state: "OTA end"
       - delay: 1s # Allow MQTT to publish status.
     on_error:
+      # The serial and MQTT logs no longer carry http_request's own reason, so
+      # the status names the failure. Codes from ESPHome 2026.9.1:
+      # ota_http_request.h (0x10-0x12) and ota/ota_backend.h (0x80-0x94).
       - lambda: |-
-          char buffer[50];
-          snprintf(buffer, sizeof(buffer), "OTA update error %d", x);
+          const char *reason;
+          switch (x) {
+            case 0x10: reason = "md5 is not 32 lowercase hex digits"; break;
+            case 0x11: reason = "url is not http(s)"; break;
+            case 0x12: reason = "download failed: no connection, TLS verification, HTTP error status or read error"; break;
+            case 0x80: reason = "the file is not a firmware image"; break;
+            case 0x89: reason = "image does not fit the app partition"; break;
+            case 0x8B: reason = "image does not match the md5"; break;
+            default: reason = "update rejected by the OTA backend"; break;
+          }
+          char buffer[112];
+          snprintf(buffer, sizeof(buffer), "OTA update error %d: %s", x, reason);
           id(ota_status).publish_state(buffer);
 
 http_request:
-  verify_ssl: false  # TODO: turn this on
+  # The url's ticket is the only credential on the download, so the server must be authenticated.
+  # ESP-IDF verifies against its built-in CA bundle.
+  verify_ssl: true
   timeout: ${ota_http_timeout}
   # No `watchdog_timeout:` -- do not add one. WatchdogManager *assigns* it for
   # the request (no max against the current value), so against the boards' own
   # `esp32: watchdog_timeout: 60s` any value here narrows the watchdog instead
   # of widening it. Unset keeps the 60s: the option has no default.
-
-text:
-  - platform: template
-    name: "OTA HTTPS prod"
-    id: ota_https_prod
-    optimistic: true
-    min_length: 0
-    max_length: 255
-    mode: text
-    on_value:
-      - delay: 1s # Allow MQTT to publish status.
-      - script.execute:
-          id: perform_ota_update
-          binary_name: !lambda 'return x;'
-          server_prefix: !lambda |-
-            bool is_test = false;
-            for (size_t pos = x.find(".test"); pos != std::string::npos;
-                 pos = x.find(".test", pos + 1)) {
-              const size_t end = pos + 5;
-              if (end == x.size() || x[end] == '.') {
-                is_test = true;
-                break;
-              }
-            }
-            return std::string("https://") +
-                   (is_test ? "${ ota_http_server_test if ota_http_server_test is defined else 1/0 }"
-                            : "${ ota_http_server if ota_http_server is defined else 1/0 }");
 
 text_sensor:
   - platform: template
@@ -84,21 +124,42 @@ text_sensor:
     update_interval: never
 
 script:
-  - id: perform_ota_update
+  # The platform's OTA route. criotive_mqtt dispatches the command that carries
+  # these, the same direction its on_connect already reaches in here for
+  # script_rollback: the mqtt module owns the subscription, this one owns what
+  # an update does. Everything needed to fetch and verify the image arrives at
+  # runtime, which is what lets one build serve a fleet.
+  - id: script_ota_from_command
     parameters:
-      server_prefix: string
-      binary_name: string
+      url: string
+      md5: string
     then:
+      # Checked here because ESPHome rejects a non-http(s) url by clearing it,
+      # and flash() then returns before on_error: the update would fail with no
+      # status at all. Codes are ESPHome's own 0x10 and 0x11.
       - if:
           condition:
-            - lambda: 'return binary_name.find("${device_name}_") == 0 && binary_name.find(".factory") == std::string::npos;'
+            lambda: |-
+              return (url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0) &&
+                     md5.size() == 32 &&
+                     md5.find_first_not_of("0123456789abcdef") == std::string::npos;
           then:
+            - delay: 1s # Allow MQTT to publish status before the flash blocks the loop.
+            # No username/password. The url carries its own ticket, and the platform
+            # answers it with a redirect to blob storage: ESP-IDF 5.5.1 re-sends an
+            # Authorization header across that redirect, and the storage service
+            # rejects any request that has one. The url therefore reaches no log --
+            # see `logger: logs:` above.
             - ota.http_request.flash:
-                md5_url: !lambda 'return server_prefix + binary_name + ".bin.md5";'
-                url: !lambda 'return server_prefix + binary_name + ".bin";'
+                url: !lambda 'return url;'
+                md5: !lambda 'return md5;'
           else:
-            - lambda: |-
-                id(ota_status).publish_state("Error: this version is for another device");
+            - text_sensor.template.publish:
+                id: ota_status
+                state: !lambda |-
+                  if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0)
+                    return std::string("OTA update error 17: url is not http(s)");
+                  return std::string("OTA update error 16: md5 is not 32 lowercase hex digits");
 
   - id: script_rollback
     then:

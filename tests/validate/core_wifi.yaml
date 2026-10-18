@@ -1,7 +1,7 @@
-# Fixture: core + wifi with station slot 1 only. The deliberately long device_name proves the AP
-# SSID is a short constant validated at config time, not the 32-char-overflowing prefixed name.
+# Fixture: core + wifi with station slot 1 only. The device_name is the longest the MAC suffix allows
+# (24), which proves the AP SSID is a short constant validated at config time, not the prefixed name.
 substitutions:
-  device_name: core-wifi-boundary-testdev
+  device_name: core-wifi-boundary-tst24
   firmware_version: "0.0.0-test"
   wifi_ssid: test-ssid
   wifi_password: test-wifi-password
@@ -10,14 +10,16 @@ substitutions:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 packages:
   criotive:
-    url: https://github.com/c-iot-systems/esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: __SDK_REF__
     files:
       - path: modules/core.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi_ap.yaml
         vars: {sdk_ref: __SDK_REF__}

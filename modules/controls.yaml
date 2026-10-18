@@ -1,10 +1,10 @@
-# The four operator-facing controls, and the four internal buttons that actually
+# The three operator-facing controls, and the three internal buttons that actually
 # do the work.
 #
 # Each visible button is an `ack_button`, so pressing it from the platform is
 # confirmable: it publishes PRESS on its state topic from `press_action()`,
 # before the automation below runs. A stock button publishes nothing, which on
-# these four is the worst place for it — the device stops answering the instant
+# these three is the worst place for it — the device stops answering the instant
 # the action lands, so "did the Restart I clicked actually arrive?" has no answer
 # after the fact.
 #
@@ -14,8 +14,8 @@
 # visible button is the thing the platform talks to; this is its target.
 #
 # The visible names all begin with "System" on purpose. ESPHome derives an entity's
-# MQTT object_id by sanitizing its name, so these four publish as `system_shutdown`,
-# `system_restart`, `system_restart_safe_mode` and `system_factory_reset`.
+# MQTT object_id by sanitizing its name, so these three publish as `system_shutdown`,
+# `system_restart` and `system_factory_reset`.
 #
 # That `system_` prefix is the public marker for "device system control": an entity a
 # consumer should treat as maintenance plumbing rather than as something the end user
@@ -26,7 +26,7 @@
 external_components:
   - source:
       type: git
-      url: https://github.com/c-iot-systems/esphome-sdk
+      url: https://github.com/criotive/esphome-sdk
       ref: ${sdk_ref}
     components: [ack_button]
 
@@ -48,12 +48,6 @@ button:
           - delay: 500ms
           - button.press: button_restart
   - platform: ack_button
-    name: "System Restart Safe Mode"
-    on_press:
-      - then:
-          - delay: 500ms
-          - button.press: button_safe_mode
-  - platform: ack_button
     name: "System Factory Reset"
     on_press:
       - then:
@@ -67,10 +61,6 @@ button:
   - platform: restart
     name: "Restart"
     id: button_restart
-    internal: true
-  - platform: safe_mode
-    name: "Restart (Safe Mode)"
-    id: button_safe_mode
     internal: true
   - platform: factory_reset
     name: "Factory Reset"

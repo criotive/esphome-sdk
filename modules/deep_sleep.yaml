@@ -1,0 +1,87 @@
+# A battery device: awake long enough to report, then asleep for `deep_sleep_sleep_duration`. Every
+# wake is a boot. Needs `criotive_mqtt.yaml` and `ota.yaml`.
+#
+# The cycle never sleeps while the device is in the middle of something it cannot resume:
+#   - an image that is still pending verification: a reset before the SDK confirms it makes the
+#     bootloader roll back on wake. It waits for the confirmation `criotive_mqtt.yaml` gives once the
+#     broker is reached, or for `ota.yaml`'s watchdog to roll back on its own;
+#   - an update the platform has just sent, until `script_ota_from_command` hands over to the flash;
+#   - the Stay Awake switch, which the platform turns on to keep the device reachable — for an update,
+#     or for anything that needs more than one awake window. Its state is kept in flash and so
+#     survives every sleep: deep sleep runs the shutdown hooks, and the preferences syncer writes
+#     on shutdown (ESPHome 2026.5.1, deep_sleep_component.cpp, preferences/syncer.h).
+#
+# Send commands in the awake window after the broker connects. The session is persistent
+# (clean_session: false) and QoS 1, so one sent during sleep arrives on the next wake only if the
+# broker's session expiry has not dropped it.
+#
+# The safe-mode counter does not grow across these boots, even though each one ends long before
+# `boot_is_good_after`: safe_mode clears it from on_safe_shutdown, which runs before the preferences
+# are written (ESPHome 2026.5.1, safe_mode.cpp, application.cpp run_safe_shutdown_hooks).
+substitutions:
+  # How long the device stays up once the broker connects. Every entity publishes its state on
+  # connect, and a polling sensor's first update comes within 5s of boot (scheduler.cpp,
+  # MAX_INTERVAL_DELAY), so the window bounds how long a command can take to arrive.
+  deep_sleep_awake_duration: 30s
+  deep_sleep_sleep_duration: 5min
+  # How long the device waits for the broker before giving up on this wake and sleeping anyway.
+  deep_sleep_offline_awake_duration: 120s
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [sdk_boot]
+
+# No `run_duration`: the cycle below decides when to sleep, and ESPHome never sleeps on its own
+# without one.
+deep_sleep:
+  id: deep_sleep_control
+  sleep_duration: ${deep_sleep_sleep_duration}
+
+switch:
+  - platform: template
+    name: "Stay Awake"
+    id: deep_sleep_stay_awake
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+sdk_boot:
+  - priority: -100
+    then:
+      - script.execute: script_deep_sleep_cycle
+
+script:
+  - id: script_deep_sleep_cycle
+    then:
+      - wait_until:
+          condition:
+            mqtt.connected:
+          timeout: ${deep_sleep_offline_awake_duration}
+      - if:
+          condition:
+            mqtt.connected:
+          then:
+            - delay: ${deep_sleep_awake_duration}
+      - wait_until:
+          condition: &deep_sleep_may_sleep
+            and:
+              - switch.is_off: deep_sleep_stay_awake
+              - not:
+                  script.is_running: script_ota_from_command
+              - lambda: |-
+                  #ifdef USE_ESP_IDF
+                    const esp_partition_t *running = esp_ota_get_running_partition();
+                    esp_ota_img_states_t ota_state;
+                    if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK &&
+                        ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+                      return false;
+                    }
+                  #endif
+                  return true;
+      - delay: 1s # Allow MQTT to publish the Stay Awake state.
+      # Again: Stay Awake or an update may have arrived during that second.
+      - wait_until:
+          condition: *deep_sleep_may_sleep
+      - deep_sleep.enter: deep_sleep_control

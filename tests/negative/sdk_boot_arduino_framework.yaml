@@ -1,0 +1,22 @@
+# Negative: an SDK config built with Arduino must not validate. sdk_boot, which core.yaml always
+# loads, refuses it; deleting that guard in components/sdk_boot/__init__.py makes this config
+# validate, and this gate goes red. Sourced locally for the reason ack_button_shared_topic.yaml gives.
+esphome:
+  name: neg-device
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+external_components:
+  - source:
+      type: local
+      path: ../../components
+    components: [sdk_boot]
+
+sdk_boot:
+  - then:
+      - logger.log: "boot"
+
+logger:

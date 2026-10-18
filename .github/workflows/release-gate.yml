@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  ESPHOME_VERSION: "2026.5.1"
+  ESPHOME_VERSION: "2026.9.1"
 
 # Deliberately NO `concurrency:` group. Within a group GitHub keeps only the newest PENDING run and
 # cancels older ones, even with cancel-in-progress: false — so a burst of pushes could cancel the
@@ -73,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # A cold PlatformIO toolchain download dominates each leg; the key pins the ESPHome version
       # so a bump re-primes the cache instead of reusing a stale toolchain.
@@ -106,7 +106,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install ESPHome ${{ env.ESPHOME_VERSION }}
         run: pip install "esphome==${ESPHOME_VERSION}"
@@ -151,6 +151,11 @@ jobs:
         run: |
           bash scripts/check-rollback-timing.sh --self-test
           bash scripts/check-rollback-timing.sh
+
+      - name: OTA url-only gate (no credentials on the download, no url in the logs)
+        run: |
+          bash scripts/check-ota-url-only.sh --self-test
+          bash scripts/check-ota-url-only.sh
 
       # The contract gate here compares against the last PUBLISHED tag, reading the commits
       # release-please will actually parse. The pull-request pass cannot stand in for it: it never

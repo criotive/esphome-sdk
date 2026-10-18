@@ -15,23 +15,30 @@ Two kinds of rule live here:
 - **Component invariants** — a rule a component enforces in its own `CONFIG_SCHEMA`, which has no
   substitution to omit. `ack_button_shared_topic.yaml` and `ack_button_wildcard_topic.yaml` are the
   first: an `ack_button` whose acknowledgement would land back on its own subscription must not
-  validate. These are named after the component and the invariant, never `omit_*`, so the parity
+  validate. `sdk_boot_arduino_framework.yaml` is another: the SDK refuses an Arduino build. These are named after the component and the invariant, never `omit_*`, so the parity
   gate keeps ignoring them. They source the component through a **local** `external_components`
-  path rather than `modules/ack_button.yaml`, because that module fetches over git — a fixture that
-  failed on an unreachable ref would pass this suite while proving nothing.
+  path and write the rest of the device out in full, importing no module: `modules/ack_button.yaml`
+  fetches the component over git, and so does `core.yaml` (for `sdk_boot`) — a fixture that failed
+  on an unreachable ref would pass this suite while proving nothing.
 
 Unlike the positive fixtures in `tests/validate/`, these import the modules with a **local
 `!include`** (`../../modules/*.yaml`) rather than the GitHub `packages:` path. That keeps them
 hermetic — they exercise the contract with no network fetch and no `__SDK_REF__` materialization, so
 they run identically locally and in CI (`check-sdk-ref.sh` does not scan this directory).
 
+The `local-test` ref they pass exists on no remote, so a fixture must fail **before** ESPHome loads
+`external_components` — at substitution time, through the guard idiom — or it fails on the fetch
+instead of on its rule. `check-negative.sh` reports any fixture that started a git clone as a
+failure of the suite, not a pass.
+
 Every fixture except `omit_sdk_ref.yaml` threads `vars: {sdk_ref: local-test}` into the includes,
 because `sdk_ref` is itself a required substitution (guarded in `core.yaml`): without it, *every*
 fixture would fail on the missing `sdk_ref` instead of on the one input it is meant to test.
 `omit_sdk_ref.yaml` is the fixture that deliberately withholds it from `core.yaml`.
 
-Coverage owned by SDK-2 (core.yaml + wifi.yaml): omitting `device_name`, `firmware_version`,
-`sdk_ref` or `wifi_ap_password`.
+Coverage: omitting `device_name`, `firmware_version` or `sdk_ref` (core.yaml), or
+`wifi_ap_password` (wifi_ap.yaml — the fallback AP is opt-in, and once imported its password has no
+default).
 
 The `orphan_wifi_password*.yaml` pair covers the WiFi station slots instead. The slots themselves are
 optional — a device may legitimately fill one, three or none of them — so there is no "omitted
@@ -40,15 +47,6 @@ fixture sets a slot's password with no SSID (slot 1 in one, slot 2 in the other)
 is the guard against a forgotten or mistyped SSID name quietly turning a configured network into no
 network at all.
 
-Coverage owned by SDK-3 (criotive_mqtt.yaml + ota.yaml): omitting `criotive_env`, `mqtt_username`,
-`mqtt_password`, `ota_password` or `ota_http_server`. The
-MQTT/OTA fixtures import all four modules (core, wifi, criotive_mqtt, ota) so that the *only* missing
-input is the one under test — the failure is attributable to that substitution, not to an unresolved
-cross-module id (criotive_mqtt's `on_connect` references ota's `script_rollback`).
-
-`invalid_criotive_env.yaml` covers the other half of that substitution, and is why it is not named
-`omit_`: `criotive_env` is the one required input whose *value* is constrained, not merely its
-presence. It selects the broker host, the TLS port and the trust anchor together, so a value that is
-not a deployment we run has no connection to resolve to. The fixture sets `criotive_env: staging` and
-must fail — proving an unrecognised environment is rejected at validation time rather than flashed
-onto a device that can never complete a handshake.
+`criotive_mqtt.yaml` and `ota.yaml` require nothing: the MQTT identity comes from the `ciotcfg`
+partition, and `ota_password` is optional — left empty, it removes the native OTA port rather than
+opening it.

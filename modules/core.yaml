@@ -1,24 +1,41 @@
 substitutions:
   logger_level: NONE
   logger_baud_rate: "0" # Serial off by default; frees GPIO1.
-  logger_hardware_uart: UART0
   framework_variant: esp-idf
-  # Arduino builds must set this to "false".
   ota_rollback: "true"
 
 esphome:
-  name: ${device_name}
+  name: "${ device_name if device_name is defined else 1/0 }"
+  # One image serves a fleet, so the name alone would repeat on every device: hostname, mDNS, AP SSID,
+  # BLE name and discovery node id get "-aabbcc" from the MAC. ESPHome then caps device_name at 24.
+  name_add_mac_suffix: true
   # The 1/0 guard makes a missing required value fail validation.
   comment: "criotive SDK ${ sdk_ref if sdk_ref is defined else 1/0 }"
-  on_boot:
-    - priority: 600
-      then:
-        - text_sensor.template.publish:
-            id: firmware_version
-            state: "${ firmware_version if firmware_version is defined else 1/0 }"
-        - lambda: |-
-            id(boots_global)++;
-            id(sensor_boots).publish_state(id(boots_global));
+  # ota.yaml's safe_mode boot_is_good_on_shutdown first shipped in 2026.8.0.
+  min_version: 2026.8.0
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [sdk_boot]
+
+# Not `esphome: on_boot`: a device config that writes its own `on_boot` as a
+# mapping replaces that list, and the platform would never learn the version
+# the device runs. Set once at setup, both states are also re-sent on every
+# MQTT (re)connect: check_connected() schedules a resend for every entity, and
+# send_initial_state() publishes the state it already has (ESPHome 2026.9.1,
+# mqtt_client.cpp, mqtt_text_sensor.cpp, mqtt_sensor.cpp).
+sdk_boot:
+  - priority: 600
+    then:
+      - text_sensor.template.publish:
+          id: firmware_version
+          state: "${ firmware_version if firmware_version is defined else 1/0 }"
+      - lambda: |-
+          id(boots_global)++;
+          id(sensor_boots).publish_state(id(boots_global));
 
 globals:
   - id: boots_global
@@ -29,10 +46,13 @@ globals:
 preferences:
   flash_write_interval: 3s
 
+# No hardware_uart: ESPHome then picks each variant's own console -- UART0 on
+# the ESP32, the native USB-Serial/JTAG port on the S3 and C3 -- which is the
+# port improv_serial must answer on. A device whose console is elsewhere sets
+# `logger: hardware_uart:` in its own config.
 logger:
   level: ${logger_level}
   baud_rate: ${logger_baud_rate}
-  hardware_uart: ${logger_hardware_uart}
 
 time:
   - platform: sntp

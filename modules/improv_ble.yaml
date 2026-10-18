@@ -1,0 +1,53 @@
+# Improv over Bluetooth LE: a phone provisions the device with no cable and no app, which is the
+# only route left once the board is installed in an enclosure.
+#
+# `esp32_improv` pulls the BLE server in on its own (ESPHome AUTO_LOADs `esp32_ble_server`), so
+# there is no `esp32_ble_tracker:` to declare here — adding one would build a second, unused BLE
+# stack.
+#
+# `authorizer` is REQUIRED by ESPHome and is pinned to `none` here, meaning any phone in range may
+# give Wi-Fi credentials to a device that has none. That is all it grants -- unlike
+# the fallback AP's captive portal (`wifi_ap.yaml`), Improv carries no firmware upload -- and it is
+# the only setting that works for a board with no button exposed. A room that has
+# a button and wants provisioning gated behind a physical press overrides `esp32_improv:` in its own
+# config with an `authorizer:` naming that binary sensor.
+#
+# COSTS FLASH. The BLE stack is several hundred kilobytes on top of the image; a project already
+# close to its app partition will fail to link rather than fail to validate, so the real compile in
+# CI is what proves it fits, not `esphome config`.
+#
+# The BLE stack runs only while provisioning needs it. It starts at boot on a device with no Wi-Fi
+# credentials and shuts down once the device is provisioned, by BLE or any other route, so BLE and
+# Wi-Fi share the radio and the heap only for that window. Wi-Fi connects while BLE is still up --
+# Improv must report the result over BLE -- which is why the shutdown waits for it. A provisioned
+# device never starts the stack again, even through a Wi-Fi outage: ESPHome would restart Improv after
+# `wifi_timeout` (2026.9.1, wifi_component.cpp), and with the stack down it has nothing to run on.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [sdk_boot]
+
+esp32_ble:
+  enable_on_boot: false
+
+sdk_boot:
+  # After wifi's setup() has loaded the saved credentials.
+  - priority: -100
+    then:
+      - if:
+          condition:
+            lambda: 'return !wifi::global_wifi_component->has_sta();'
+          then:
+            - ble.enable:
+
+esp32_improv:
+  authorizer: none
+  # Never reached; see above. Belt and braces should the stack ever be enabled elsewhere.
+  wifi_timeout: 4294967295ms
+  on_provisioned:
+    # Past ESPHome's 10s STOP_ADVERTISING_DELAY: Improv removes its own BLE service then, and
+    # dismantling the stack before it would leave that service dangling.
+    - delay: 12s
+    - ble.disable:

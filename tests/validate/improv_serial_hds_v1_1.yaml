@@ -1,0 +1,23 @@
+# Fixture: Improv over serial on the one board where it costs something. hds_v1_1 wires SW1 to
+# GPIO1, which is also UART0 TX, so the console and the button are mutually exclusive — SW1 is
+# disabled here, and that is the whole point of the fixture. The baud rate is set explicitly to
+# prove improv_serial keeps a non-zero rate a device chose instead of replacing it with its own.
+substitutions:
+  device_name: improv-serial-hds11-test
+  firmware_version: "0.0.0-test"
+  logger_level: INFO
+  logger_baud_rate: "115200"
+  hds_v1_1_sw1_enabled: "false"
+
+packages:
+  criotive:
+    url: https://github.com/criotive/esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: hardware/hds_v1_1.yaml
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/improv_serial.yaml
+        vars: {sdk_ref: __SDK_REF__}

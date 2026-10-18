@@ -1,26 +1,25 @@
 # Fixture: the oracle for the cross-module rollback reference (criotive_mqtt on_connect ->
 # ota's script_rollback), the MQTT TLS trust anchor, log_topic: null by default, and location's
 # MQTT system-command subscription plus canonical telemetry publisher.
+#
+# It is also the oracle for the other direction of that same coupling: criotive_mqtt's
+# on_json_message dispatch reaching ota's script_ota_from_command. Composing either module without
+# the other is what this fixture would catch.
 substitutions:
   device_name: mqtt-ota-testdev
   firmware_version: "0.0.0-test"
   wifi_ssid: test-ssid
   wifi_password: test-wifi-password
-  wifi_ap_password: test-ap-password
-  criotive_env: prod
-  mqtt_username: test-mqtt-user
-  mqtt_password: test-mqtt-password
   ota_password: test-ota-password
-  ota_http_server: ota.test.invalid/blobs/
 
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 packages:
   criotive:
-    url: https://github.com/c-iot-systems/esphome-sdk
+    url: https://github.com/criotive/esphome-sdk
     ref: __SDK_REF__
     files:
       - path: modules/core.yaml
@@ -28,6 +27,8 @@ packages:
       - path: modules/wifi.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/criotive_mqtt.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ciotcfg.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/ota.yaml
         vars: {sdk_ref: __SDK_REF__}
