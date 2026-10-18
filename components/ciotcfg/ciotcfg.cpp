@@ -19,7 +19,7 @@ namespace esphome::ciotcfg {
 static const char *const TAG = "ciotcfg";
 
 static const char PARTITION_LABEL[] = "ciotcfg";
-static const esp_partition_subtype_t PARTITION_SUBTYPE = static_cast<esp_partition_subtype_t>(0x40);
+static const esp_partition_type_t PARTITION_TYPE = static_cast<esp_partition_type_t>(0x40);
 
 static const uint8_t MAGIC[] = {'C', 'I', 'O', 'T'};
 
@@ -74,7 +74,7 @@ void CiotCfg::setup() {
 
 bool CiotCfg::load_() {
   const esp_partition_t *partition =
-      esp_partition_find_first(ESP_PARTITION_TYPE_DATA, PARTITION_SUBTYPE, PARTITION_LABEL);
+      esp_partition_find_first(PARTITION_TYPE, ESP_PARTITION_SUBTYPE_ANY, PARTITION_LABEL);
   if (partition == nullptr) {
     ESP_LOGE(TAG, "no '%s' partition in the table", PARTITION_LABEL);
     return false;

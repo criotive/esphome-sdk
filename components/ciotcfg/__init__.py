@@ -39,11 +39,12 @@ DEPENDENCIES = ["esp32", "mqtt"]
 AUTO_LOAD = ["json"]
 
 PARTITION_NAME = "ciotcfg"
-PARTITION_TYPE = "data"
-# 0x40 is in the application-defined data range: ESP-IDF assigns no meaning to it, so nothing in the
-# framework treats this partition as a filesystem it may format. Passed as an int on purpose —
-# `_validate_partition` applies its subtype whitelist (nvs, spiffs, fat, …) only to strings.
-PARTITION_SUBTYPE = 0x40
+# A partition TYPE of its own: ESP-IDF reserves types 0x40-0xFE for applications
+# (esp_partition.h), while it keeps adding data subtypes, so a data subtype could one day mean
+# something to the framework. Ints on purpose: `_validate_partition` whitelists only strings.
+# Devices in the field carry this row forever, so it never changes.
+PARTITION_TYPE = 0x40
+PARTITION_SUBTYPE = 0x00
 PARTITION_SIZE = 0x20000
 
 MIN_ESPHOME_VERSION = "2026.4.0"
@@ -76,16 +77,15 @@ CONFIG_SCHEMA = cv.All(
 
 
 def _csv_has_partition_row(csv: str) -> bool:
-    """True when a non-comment row names `ciotcfg` with the data type and subtype the device reads."""
+    """True when a non-comment row names `ciotcfg` with the type and subtype the device reads."""
     for line in csv.splitlines():
         fields = [field.strip() for field in line.split("#", 1)[0].split(",")]
         if len(fields) < 3 or fields[0] != PARTITION_NAME:
             continue
         try:
-            subtype = int(fields[2], 0)
+            return int(fields[1], 0) == PARTITION_TYPE and int(fields[2], 0) == PARTITION_SUBTYPE
         except ValueError:
             return False
-        return fields[1] == PARTITION_TYPE and subtype == PARTITION_SUBTYPE
     return False
 
 
@@ -120,10 +120,10 @@ def _require_partition_row(config: dict[str, Any]) -> dict[str, Any]:
     if not _csv_has_partition_row(csv):
         raise cv.Invalid(
             f"'{partitions}' is used as the partition table verbatim, and it has no "
-            f"'{PARTITION_NAME}' {PARTITION_TYPE} partition of subtype 0x{PARTITION_SUBTYPE:X}. ESPHome silently drops every partition a component "
+            f"'{PARTITION_NAME}' partition of type 0x{PARTITION_TYPE:X}, subtype 0x{PARTITION_SUBTYPE:X}. ESPHome silently drops every partition a component "
             f"registers when the table comes from a file, so ciotcfg would have nowhere to read "
             f"from. Add this row:\n"
-            f"  {PARTITION_NAME}, {PARTITION_TYPE}, 0x{PARTITION_SUBTYPE:X}, , 0x{PARTITION_SIZE:X},",
+            f"  {PARTITION_NAME}, 0x{PARTITION_TYPE:X}, 0x{PARTITION_SUBTYPE:X}, , 0x{PARTITION_SIZE:X},",
         )
 
     return config
