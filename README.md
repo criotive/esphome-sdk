@@ -232,9 +232,9 @@ the broker credentials. The password is compiled into the image, so every device
 config shares it: it is a fleet secret, kept out of any stored or shared config. That is a real cost,
 and it is why the platform's flow does without the AP.
 Improv only offers provisioning while the device has no network it can join, so on a device whose
-station slots are filled it is inert rather than broken. `improv_ble` goes further and advertises
-only on a device with no Wi-Fi credentials at all: ESPHome would otherwise restart it on a
-provisioned device after `wifi_timeout` (90s) of outage. `improv_ble_wifi_timeout: 90s` restores that.
+station slots are filled it is inert rather than broken. `improv_ble` goes further: the BLE stack
+starts only on a device with no Wi-Fi credentials, and shuts down 12s after the device is
+provisioned, so a provisioned device never runs BLE beside Wi-Fi, not even through an outage.
 
 **`improv_serial` opens the serial console itself.** Improv talks over the logger's port, and
 `core.yaml` defaults `logger_baud_rate` to `"0"`, which never opens it. Since `0` is the one rate

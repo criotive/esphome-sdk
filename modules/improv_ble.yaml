@@ -16,13 +16,38 @@
 # close to its app partition will fail to link rather than fail to validate, so the real compile in
 # CI is what proves it fits, not `esphome config`.
 #
-# ESPHome 2026.9.1 also restarts advertising on a PROVISIONED device once Wi-Fi has been down for
-# `wifi_timeout`, so with no authorizer a router outage would let anyone in range re-point it. The
-# default is the largest uint32 in ms, which ESPHome's elapsed-time check can never exceed: only a
-# device with no credentials advertises. Set `improv_ble_wifi_timeout: 90s` to accept that exposure.
-substitutions:
-  improv_ble_wifi_timeout: 4294967295ms
+# The BLE stack runs only while provisioning needs it. It starts at boot on a device with no Wi-Fi
+# credentials and shuts down once the device is provisioned, by BLE or any other route, so BLE and
+# Wi-Fi share the radio and the heap only for that window. Wi-Fi connects while BLE is still up --
+# Improv must report the result over BLE -- which is why the shutdown waits for it. A provisioned
+# device never starts the stack again, even through a Wi-Fi outage: ESPHome would restart Improv after
+# `wifi_timeout` (2026.9.1, wifi_component.cpp), and with the stack down it has nothing to run on.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [sdk_boot]
+
+esp32_ble:
+  enable_on_boot: false
+
+sdk_boot:
+  # After wifi's setup() has loaded the saved credentials.
+  - priority: -100
+    then:
+      - if:
+          condition:
+            lambda: 'return !wifi::global_wifi_component->has_sta();'
+          then:
+            - ble.enable:
 
 esp32_improv:
   authorizer: none
-  wifi_timeout: ${improv_ble_wifi_timeout}
+  # Never reached; see above. Belt and braces should the stack ever be enabled elsewhere.
+  wifi_timeout: 4294967295ms
+  on_provisioned:
+    # Past ESPHome's 10s STOP_ADVERTISING_DELAY: Improv removes its own BLE service then, and
+    # dismantling the stack before it would leave that service dangling.
+    - delay: 12s
+    - ble.disable:
