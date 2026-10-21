@@ -65,6 +65,37 @@ binary_sensor:
       ignore_pin_validation_error: true
     name: "slot_4_io_expander_keyscan_10x8_sda"
     internal: true
+  - platform: gpio
+    pin:
+      tca8418: slot_expander
+      number: ${slot_6_io_expander_keyscan_5x5_io1}
+      mode:
+        input: true
+        pullup: true
+    name: "slot_6_io_expander_keyscan_5x5_io1"
+    internal: true
+  - platform: gpio
+    pin:
+      tca8418: slot_expander
+      number: ${slot_4_io_expander_keyscan_10x8_io18}
+      mode:
+        input: true
+        pullup: true
+    name: "slot_4_io_expander_keyscan_10x8_io18"
+    internal: true
+
+# Expander channels are TCA8418 pin numbers, so they are exercised on an expander pin.
+i2c:
+  sda:
+    number: ${slot_6_io_expander_keyscan_5x5_sda}
+    ignore_pin_validation_error: true
+  scl:
+    number: ${slot_6_io_expander_keyscan_5x5_scl}
+    ignore_pin_validation_error: true
+
+tca8418:
+  - id: slot_expander
+    address: 0x34
 
 # The Power connector's CAN pair, exercised by name for the same reason as the slot
 # pins above: TX is GPIO2 on both revisions but RX is not, so a room reading these
@@ -85,4 +116,6 @@ packages:
       - path: modules/core.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/tca8418.yaml
         vars: {sdk_ref: __SDK_REF__}

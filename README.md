@@ -1064,7 +1064,10 @@ numbered module slots; a pluggable module wired into a slot exposes named signal
 `slot_<n>_<module>_<signal>` substitution resolves that signal, for that module in that slot, to the
 physical GPIO it lands on. Names are `lower_snake_case`. For example, a Double Relay wired into slot 3
 uses `${slot_3_double_relay_relay_1}` for relay 1's pin; an Audio module's RX in slot 7 uses
-`${slot_7_audio_rx}`. Only combinations that physically fit a board are listed, and each board's table
+`${slot_7_audio_rx}`. The expander modules' channels are the exception to "physical GPIO":
+`slot_<n>_io_expander_keyscan_5x5_io1` … `io10` and `slot_4_io_expander_keyscan_10x8_io1` … `io18`
+resolve to the TCA8418 pin each IO terminal is wired to — the module does not wire them in chip
+order — so they go in the `number:` of a `tca8418:` pin, never in a native one. Only combinations that physically fit a board are listed, and each board's table
 is board-specific — the same module in the same slot resolves to different pins on different boards.
 
 The values are **static data**, transcribed from the board's slot/module definitions and cross-checked
