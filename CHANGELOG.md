@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/criotive/esphome-sdk/compare/v0.5.0...v0.5.1) (2026-10-21)
+
+
+### Features
+
+* **hardware:** name the HDS expander channels' TCA8418 pins ([c47d9cd](https://github.com/criotive/esphome-sdk/commit/c47d9cd8266ee1b6386bdd172bb7bc966a3bde58))
+
 ## [0.5.0](https://github.com/criotive/esphome-sdk/compare/v0.4.1...v0.5.0) (2026-10-18)
 
 
