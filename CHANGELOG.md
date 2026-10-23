@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.2](https://github.com/criotive/esphome-sdk/compare/v0.6.1...v0.6.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **serial-api:** harden the line protocol for third-party clients ([7019812](https://github.com/criotive/esphome-sdk/commit/701981244e94447d5e103d15f819083979971dfe))
+
+
+### Documentation
+
+* **serial-api:** rewrite the protocol reference for client developers ([4de6606](https://github.com/criotive/esphome-sdk/commit/4de6606d456e14240b2f2279309050ccd2d518de))
+
 ## [0.6.1](https://github.com/criotive/esphome-sdk/compare/v0.6.0...v0.6.1) (2026-10-23)
 
 
