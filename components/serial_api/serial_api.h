@@ -14,7 +14,12 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/core/application.h"
 #include "esphome/core/component.h"
+// ESPHome 2026.10 removed the Controller base: a controller is any class with the on_*_update()
+// members, and ESPHome generates the calls to it instead of registering it at setup.
+#if __has_include("esphome/core/controller.h")
 #include "esphome/core/controller.h"
+#define SERIAL_API_CONTROLLER_BASE
+#endif
 #include "esphome/core/entity_base.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/version.h"
@@ -268,7 +273,15 @@ inline protocol::SetOutcome serial_write(text_sensor::TextSensor * /*e*/, const 
 }
 #endif
 
-class SerialAPI : public uart::UARTDevice, public Component, public Controller {
+#ifdef SERIAL_API_CONTROLLER_BASE
+#define SERIAL_API_CONTROLLER_PARENT , public Controller
+#define SERIAL_API_CONTROLLER_OVERRIDE override
+#else
+#define SERIAL_API_CONTROLLER_PARENT
+#define SERIAL_API_CONTROLLER_OVERRIDE
+#endif
+
+class SerialAPI : public uart::UARTDevice, public Component SERIAL_API_CONTROLLER_PARENT {
  public:
   void setup() override;
   void loop() override;
@@ -282,7 +295,7 @@ class SerialAPI : public uart::UARTDevice, public Component, public Controller {
   // NOLINTBEGIN(bugprone-macro-parentheses)
 #define ENTITY_TYPE_(type, singular, plural, count, upper)
 #define ENTITY_CONTROLLER_TYPE_(type, singular, plural, count, upper, callback) \
-  void on_##callback(type *obj) override { this->on_entity_update_(obj, #singular); }
+  void on_##callback(type *obj) SERIAL_API_CONTROLLER_OVERRIDE { this->on_entity_update_(obj, #singular); }
 #include "esphome/core/entity_types.h"
 #undef ENTITY_TYPE_
 #undef ENTITY_CONTROLLER_TYPE_
