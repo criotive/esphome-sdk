@@ -338,11 +338,11 @@ class SerialAPI : public uart::UARTDevice, public Component SERIAL_API_CONTROLLE
 
   template<class T> void respond_get_(T *entity, const char *type_name) {
     std::string object_id = this->object_id_of_(entity);
+    std::string address = std::string(type_name) + "/" + object_id;
     if (protocol::exposure_of(object_id, entity->is_internal()) == protocol::Exposure::HIDDEN) {
-      this->emit_line_(protocol::format_err(protocol::err::DENIED, object_id));
+      this->emit_line_(protocol::format_err(protocol::err::DENIED, address));
       return;
     }
-    std::string address = std::string(type_name) + "/" + object_id;
     std::string value;
     switch (serial_read_state(entity, value)) {
       case ReadResult::OK:
@@ -359,16 +359,17 @@ class SerialAPI : public uart::UARTDevice, public Component SERIAL_API_CONTROLLE
 
   template<class T> void respond_set_(T *entity, const char *type_name, const std::string &value) {
     std::string object_id = this->object_id_of_(entity);
+    std::string address = std::string(type_name) + "/" + object_id;
     if (protocol::exposure_of(object_id, entity->is_internal()) != protocol::Exposure::FULL) {
-      this->emit_line_(protocol::format_err(protocol::err::DENIED, object_id));
+      this->emit_line_(protocol::format_err(protocol::err::DENIED, address));
       return;
     }
-    std::string address = std::string(type_name) + "/" + object_id;
     this->emit_line_(protocol::format_set_response(serial_write(entity, value), address));
   }
 
   template<class T> void on_entity_update_(T *entity, const char *type_name) {
-    if (!this->subscribed_)
+    // ESPHome 2026.10 dispatches state updates from boot, before setup() has sent HELLO.
+    if (!this->started_ || !this->subscribed_)
       return;
     std::string object_id = this->object_id_of_(entity);
     if (protocol::exposure_of(object_id, entity->is_internal()) == protocol::Exposure::HIDDEN)
@@ -381,6 +382,7 @@ class SerialAPI : public uart::UARTDevice, public Component SERIAL_API_CONTROLLE
 
   std::string firmware_version_;
   protocol::LineAssembler assembler_;
+  bool started_{false};
   bool subscribed_{true};
   bool mqtt_connected_{false};
 };

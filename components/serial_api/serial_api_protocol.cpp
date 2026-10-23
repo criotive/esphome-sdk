@@ -144,7 +144,7 @@ std::string quote(const std::string &s) {
   std::string out;
   out.reserve(s.size() + 2);
   out.push_back('"');
-  for (char c : s) {
+  for (char c : printable(s)) {
     if (c == '\\' || c == '"')
       out.push_back('\\');
     out.push_back(c);
@@ -161,49 +161,72 @@ bool has_control_byte(const std::string &s) {
   return false;
 }
 
-bool is_valid_utf8(const std::string &s) {
-  size_t i = 0;
+// Length of the valid UTF-8 sequence starting at s[i], or 0 when the bytes there are not one.
+static size_t utf8_sequence_length(const std::string &s, size_t i) {
   size_t n = s.size();
-  while (i < n) {
-    unsigned char c = static_cast<unsigned char>(s[i]);
-    size_t extra;
-    if (c < 0x80) {
-      i++;
-      continue;
-    } else if ((c & 0xE0) == 0xC0) {
-      if (c < 0xC2)  // overlong two-byte (C0/C1)
-        return false;
-      extra = 1;
-    } else if ((c & 0xF0) == 0xE0) {
-      extra = 2;
-    } else if ((c & 0xF8) == 0xF0) {
-      if (c > 0xF4)  // beyond U+10FFFF
-        return false;
-      extra = 3;
-    } else {
-      return false;  // stray continuation byte or 5/6-byte lead
-    }
-    if (i + extra >= n)
-      return false;  // truncated sequence
-    for (size_t k = 1; k <= extra; k++) {
-      if ((static_cast<unsigned char>(s[i + k]) & 0xC0) != 0x80)
-        return false;
-    }
-    unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
-    if (extra == 2) {
-      if (c == 0xE0 && c1 < 0xA0)  // overlong three-byte
-        return false;
-      if (c == 0xED && c1 > 0x9F)  // UTF-16 surrogate half
-        return false;
-    } else if (extra == 3) {
-      if (c == 0xF0 && c1 < 0x90)  // overlong four-byte
-        return false;
-      if (c == 0xF4 && c1 > 0x8F)  // beyond U+10FFFF
-        return false;
-    }
-    i += extra + 1;
+  unsigned char c = static_cast<unsigned char>(s[i]);
+  size_t extra;
+  if (c < 0x80) {
+    return 1;
+  } else if ((c & 0xE0) == 0xC0) {
+    if (c < 0xC2)  // overlong two-byte (C0/C1)
+      return 0;
+    extra = 1;
+  } else if ((c & 0xF0) == 0xE0) {
+    extra = 2;
+  } else if ((c & 0xF8) == 0xF0) {
+    if (c > 0xF4)  // beyond U+10FFFF
+      return 0;
+    extra = 3;
+  } else {
+    return 0;  // stray continuation byte or 5/6-byte lead
+  }
+  if (i + extra >= n)
+    return 0;  // truncated sequence
+  for (size_t k = 1; k <= extra; k++) {
+    if ((static_cast<unsigned char>(s[i + k]) & 0xC0) != 0x80)
+      return 0;
+  }
+  unsigned char c1 = static_cast<unsigned char>(s[i + 1]);
+  if (extra == 2) {
+    if (c == 0xE0 && c1 < 0xA0)  // overlong three-byte
+      return 0;
+    if (c == 0xED && c1 > 0x9F)  // UTF-16 surrogate half
+      return 0;
+  } else if (extra == 3) {
+    if (c == 0xF0 && c1 < 0x90)  // overlong four-byte
+      return 0;
+    if (c == 0xF4 && c1 > 0x8F)  // beyond U+10FFFF
+      return 0;
+  }
+  return extra + 1;
+}
+
+bool is_valid_utf8(const std::string &s) {
+  for (size_t i = 0; i < s.size();) {
+    size_t len = utf8_sequence_length(s, i);
+    if (len == 0)
+      return false;
+    i += len;
   }
   return true;
+}
+
+std::string printable(const std::string &s) {
+  static const char REPLACEMENT[] = "\xEF\xBF\xBD";  // U+FFFD
+  std::string out;
+  out.reserve(s.size());
+  for (size_t i = 0; i < s.size();) {
+    size_t len = utf8_sequence_length(s, i);
+    if (len == 0 || static_cast<unsigned char>(s[i]) < 0x20) {
+      out += REPLACEMENT;
+      i++;
+      continue;
+    }
+    out.append(s, i, len);
+    i += len;
+  }
+  return out;
 }
 
 Exposure exposure_of(const std::string &object_id, bool internal) {
@@ -301,7 +324,7 @@ std::string format_err(const char *code, const std::string &detail) {
   out += code;
   if (!detail.empty()) {
     out.push_back(' ');
-    out += detail;
+    out += printable(detail);
   }
   return out;
 }
@@ -314,7 +337,7 @@ std::string format_hello(const std::string &device_name, const std::string &firm
   out.push_back(' ');
   out += device_name;
   out.push_back(' ');
-  out += firmware_version;
+  out += printable(firmware_version);
   return out;
 }
 
@@ -322,7 +345,7 @@ std::string format_state(const std::string &address, const std::string &value) {
   std::string out = "STATE ";
   out += address;
   out.push_back(' ');
-  out += value;
+  out += printable(value);
   return out;
 }
 
@@ -330,7 +353,7 @@ std::string format_evt(const std::string &address, const std::string &value) {
   std::string out = "EVT ";
   out += address;
   out.push_back(' ');
-  out += value;
+  out += printable(value);
   return out;
 }
 

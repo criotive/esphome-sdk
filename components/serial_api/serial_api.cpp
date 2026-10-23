@@ -1,5 +1,6 @@
 #include "serial_api.h"
 
+#include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -7,15 +8,21 @@ namespace serial_api {
 
 static const char *const TAG = "serial_api";
 
+// Writes block until the UART has sent them, so a client that keeps requests queued would
+// otherwise hold the main loop, starving Wi-Fi, MQTT and the watchdog.
+static const uint32_t LOOP_BUDGET_MS = 20;
+
 void SerialAPI::setup() {
 #if defined(USE_CONTROLLER_REGISTRY) && defined(SERIAL_API_CONTROLLER_BASE)
   ControllerRegistry::register_controller(this);
 #endif
   this->send_hello_();
+  this->started_ = true;
 }
 
 void SerialAPI::loop() {
   this->poll_mqtt_status_();
+  const uint32_t start = millis();
   uint8_t byte;
   while (this->available()) {
     if (!this->read_byte(&byte))
@@ -24,6 +31,8 @@ void SerialAPI::loop() {
       case protocol::LineAssembler::Status::LINE_READY:
         this->process_line_(this->assembler_.line());
         this->assembler_.reset();
+        if (millis() - start >= LOOP_BUDGET_MS)
+          return;
         break;
       case protocol::LineAssembler::Status::TOO_LONG:
         this->emit_line_(protocol::format_err(protocol::err::PARSE, "line-too-long"));
@@ -130,11 +139,21 @@ void SerialAPI::handle_get_(const protocol::Command &cmd) {
   // NOLINTBEGIN(bugprone-macro-parentheses)
 #define ENTITY_TYPE_(type, singular, plural, count, upper) \
   if (req_type == #singular) { \
+    type *hidden = nullptr; \
     for (auto *entity : App.get_##plural()) { \
-      if (this->object_id_of_(entity) == req_object_id) { \
-        this->respond_get_(entity, #singular); \
-        return; \
+      if (this->object_id_of_(entity) != req_object_id) \
+        continue; \
+      if (entity->is_internal()) { \
+        if (hidden == nullptr) \
+          hidden = entity; \
+        continue; \
       } \
+      this->respond_get_(entity, #singular); \
+      return; \
+    } \
+    if (hidden != nullptr) { \
+      this->respond_get_(hidden, #singular); \
+      return; \
     } \
   }
 #define ENTITY_CONTROLLER_TYPE_(type, singular, plural, count, upper, callback) \
@@ -179,11 +198,21 @@ void SerialAPI::handle_set_(const protocol::Command &cmd) {
   // NOLINTBEGIN(bugprone-macro-parentheses)
 #define ENTITY_TYPE_(type, singular, plural, count, upper) \
   if (req_type == #singular) { \
+    type *hidden = nullptr; \
     for (auto *entity : App.get_##plural()) { \
-      if (this->object_id_of_(entity) == req_object_id) { \
-        this->respond_set_(entity, #singular, value); \
-        return; \
+      if (this->object_id_of_(entity) != req_object_id) \
+        continue; \
+      if (entity->is_internal()) { \
+        if (hidden == nullptr) \
+          hidden = entity; \
+        continue; \
       } \
+      this->respond_set_(entity, #singular, value); \
+      return; \
+    } \
+    if (hidden != nullptr) { \
+      this->respond_set_(hidden, #singular, value); \
+      return; \
     } \
   }
 #define ENTITY_CONTROLLER_TYPE_(type, singular, plural, count, upper, callback) \
