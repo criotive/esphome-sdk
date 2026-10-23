@@ -104,6 +104,11 @@ jobs:
           bash scripts/check-negative.sh --self-test
           bash scripts/check-negative.sh
 
+      - name: Serial API pin-contract gate (required pins + component pin-conflict rule, by error text)
+        run: |
+          bash scripts/check-serial-api-pins.sh --self-test
+          bash scripts/check-serial-api-pins.sh
+
   # Compiles only the fixtures this pull request can break (scripts/select-fixtures.sh), in shards
   # of eight, so a docs change compiles nothing. The release merge compiles all of them.
   discover:
@@ -175,3 +180,17 @@ jobs:
 
       - name: esphome compile
         run: bash scripts/compile-fixtures.sh ${{ matrix.fixtures }}
+
+  # Host unit tests for the Serial API wire protocol: plain g++ driven from Python, no ESPHome.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Serial API protocol unit tests
+        run: python -m unittest discover -s tests/unit -p 'test_*.py' -v

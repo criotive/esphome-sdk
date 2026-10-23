@@ -131,6 +131,8 @@ opt-in composition. A device compiles only the modules it imports.
 | `logger_level` | no | `NONE` _(safety)_ | logging is **off by default** — see below |
 | `logger_baud_rate` | no | `0` _(safety)_ | `0` **disables** the serial console (skips UART init); `improv_serial.yaml` turns `0` into `115200` — see below |
 | `diagnostics_update_interval` | no | `60s` _(convenience)_ | *(`diagnostics.yaml`)* cadence for debug sensors a device attaches to the `debug` component — see below |
+| `serial_api_tx_pin` | **yes** | — | *(`serial_api.yaml`)* UART TX pin for the serial API; **no default** — every room states it, see **Serial API** |
+| `serial_api_rx_pin` | **yes** | — | *(`serial_api.yaml`)* UART RX pin for the serial API; **no default** — every room states it, see **Serial API** |
 
 Defaults are tagged **_(safety)_** or **_(convenience)_**. A **safety** default encodes a deliberate
 protective posture — offline survival (`*_reboot_timeout: 0s`), production-quiet logging
@@ -699,9 +701,9 @@ of passing silently.
   package `ref` and `vars.sdk_ref`, runs `esphome config` over `tests/validate/` and `esphome
   compile` over the fixtures the change can break, and runs the
   `check-automation-syntax.sh`, `check-button-platform.sh`, `check-sdk-ref.sh`,
-  `check-negative.sh`, `check-offline-survival.sh`, `check-rollback-timing.sh`,
-  `check-ota-url-only.sh` and `check-contract-diff.sh` gates. This validates the *revision under
-  test*, never a published tag.
+  `check-negative.sh`, `check-serial-api-pins.sh`, `check-offline-survival.sh`,
+  `check-rollback-timing.sh`, `check-ota-url-only.sh` and `check-contract-diff.sh` gates. This
+  validates the *revision under test*, never a published tag.
 - **`release-gate.yml`** — every push to `main`. `compile` runs the real `esphome compile` in shards
   of eight, over the fixtures the push can break (`scripts/select-fixtures.sh`) — and over **every**
   fixture on the release PR's merge, which changes `version.txt` (the list is discovered, not
@@ -904,6 +906,25 @@ the entities themselves stay in the device's own config.
   `platform: shutdown` / `restart` / `factory_reset` genuinely perform the reboot and
   the wipe that `ack_button` cannot; `internal: true` is what makes them invisible to the platform,
   and therefore exempt from having to answer it.
+
+### Serial API — `serial_api.yaml`
+
+- **The device's entities on a UART, no broker in the path.** Anything that opens a serial port can
+  list, read and drive every entity the device exposes on MQTT — system controls included — and
+  receives every state change as it happens. The protocol, wiring and exposure rule are in
+  [`docs/serial-api.md`](docs/serial-api.md). **Import it when** a room is driven over a cable,
+  alongside or instead of MQTT. It is opt-in: nothing changes for a device that does not import it.
+
+  **The pins are required, with no default.** `serial_api_tx_pin` and `serial_api_rx_pin` have no
+  pair that is free on every room: CAN takes GPIO3 on `hds_v1_1` and SW1 takes GPIO1. The board's
+  USB port (`"1"`/`"3"`) is a legal choice when SW1 is disabled, the room has no CAN, the logger's
+  console stays off and `improv_serial.yaml` is not imported; a slot pair costs none of those.
+  `esphome config` rejects each conflict, in the component itself, so a room importing the module
+  by URL is checked too.
+
+  **Release note — no existing config breaks.** `check-contract-diff.sh` reports the two required
+  substitutions as breaking, because `modules/` is one namespace; nothing imported the module before
+  it existed.
 
 ### Optional hardware modules
 

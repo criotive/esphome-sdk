@@ -1,0 +1,18 @@
+# Opt-in: the device's entities on a UART. The pins are required with no default, because no pair is
+# free on every room (CAN takes GPIO3 on hds_v1_1, SW1 takes GPIO1).
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [serial_api]
+
+uart:
+  - id: serial_api_uart
+    tx_pin: "${ serial_api_tx_pin if serial_api_tx_pin is defined else 1/0 }"
+    rx_pin: "${ serial_api_rx_pin if serial_api_rx_pin is defined else 1/0 }"
+    baud_rate: 115200
+
+serial_api:
+  uart_id: serial_api_uart
+  firmware_version: ${firmware_version}
