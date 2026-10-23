@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request makes this run's results moot.
+concurrency:
+  group: validate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 env:
   ESPHOME_VERSION: "2026.9.1"
   SDK_REF: ${{ github.event.pull_request.head.sha }}
@@ -99,34 +104,38 @@ jobs:
           bash scripts/check-negative.sh --self-test
           bash scripts/check-negative.sh
 
-  # The same per-fixture compile release-gate.yml runs on main, run here too so a component that
-  # does not build is caught before merge rather than after, when main is already broken.
+  # Compiles only the fixtures this pull request can break (scripts/select-fixtures.sh), in shards
+  # of eight, so a docs change compiles nothing. The release merge compiles all of them.
   discover:
     runs-on: ubuntu-latest
     outputs:
-      fixtures: ${{ steps.list.outputs.fixtures }}
+      shards: ${{ steps.list.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - id: list
         run: |
           set -euo pipefail
-          fixtures="$(find tests/validate -maxdepth 1 \( -name '*.yaml' -o -name '*.yml' \) \
-                        | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
-          if [ "$(jq -r 'length' <<<"$fixtures")" -eq 0 ]; then
-            echo "::error::no validate fixtures found"
-            exit 1
-          fi
-          echo "fixtures=${fixtures}" >>"$GITHUB_OUTPUT"
+          bash scripts/select-fixtures.sh --self-test
+          bash scripts/select-fixtures.sh "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" >selected.txt
+          echo "selected $(grep -c . selected.txt || true) fixture(s):"
+          cat selected.txt
+          shards="$(jq -R -s -c 'split("\n") | map(select(length > 0)) as $f
+                      | [range(0; $f | length; 8) as $i | $f[$i:$i + 8] | join(" ")]' selected.txt)"
+          echo "shards=${shards}" >>"$GITHUB_OUTPUT"
 
   compile:
     needs: discover
+    if: needs.discover.outputs.shards != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        fixture: ${{ fromJSON(needs.discover.outputs.fixtures) }}
+        fixtures: ${{ fromJSON(needs.discover.outputs.shards) }}
+    name: compile (${{ matrix.fixtures }})
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,14 +146,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache the PlatformIO toolchain
-        uses: actions/cache@v4
+      # ESPHome compiles through ccache whenever it is on PATH; the runner image has none.
+      - name: Install ccache
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+
+      # Restore only: main's release-gate saves these, and pull requests can read main's caches.
+      - name: Restore the ESP-IDF toolchain
+        uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.platformio
+            ~/.cache/esphome/idf
+            !~/.cache/esphome/idf/ccache
             ~/.cache/pip
-          key: pio-${{ runner.os }}-esphome-${{ env.ESPHOME_VERSION }}
-          restore-keys: pio-${{ runner.os }}-esphome-
+          key: esphome-idf-${{ runner.os }}-${{ env.ESPHOME_VERSION }}
+
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/esphome/idf/ccache
+          key: esphome-ccache-${{ runner.os }}-${{ env.ESPHOME_VERSION }}-${{ github.run_id }}
+          restore-keys: esphome-ccache-${{ runner.os }}-${{ env.ESPHOME_VERSION }}-
 
       - name: Install ESPHome ${{ env.ESPHOME_VERSION }}
         run: pip install "esphome==${ESPHOME_VERSION}"
@@ -152,5 +173,5 @@ jobs:
       - name: Materialize the revision under test into validate fixtures
         run: bash scripts/materialize-sdk-ref.sh "${{ github.event.pull_request.head.sha }}"
 
-      - name: esphome compile ${{ matrix.fixture }}
-        run: esphome compile "${{ matrix.fixture }}"
+      - name: esphome compile
+        run: bash scripts/compile-fixtures.sh ${{ matrix.fixtures }}

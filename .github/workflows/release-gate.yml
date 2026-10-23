@@ -1,8 +1,9 @@
 name: release-gate
 
 # Compile, then release — in that order, in ONE workflow, so the second cannot happen without the
-# first. The compile fans out one job per validate fixture; `needs` treats the matrix as a unit, so
-# the release job is unreachable unless EVERY fixture built.
+# first. The compile fans out in shards of fixtures; `needs` treats the matrix as a unit, so the
+# release job is unreachable unless every selected fixture built. The release PR's merge selects
+# EVERY fixture (it changes version.txt), and the publish step refuses a commit that was not.
 #
 # The ordering is the whole point. A tag here is permanent, public and pinned by devices in the
 # field, so the compile has to run while the version is still only a proposal. Two independent
@@ -13,7 +14,8 @@ name: release-gate
 # tagged.
 #
 # This is why there is no `paths:` filter. A release PR only edits CHANGELOG.md and version.txt,
-# so a filter would skip the compile on exactly the push that publishes the tag.
+# so a filter would skip the compile on exactly the push that publishes the tag. Any other push
+# compiles only the fixtures it can break (scripts/select-fixtures.sh).
 #
 # `push: branches: [main]` is the ONLY trigger. A workflow_dispatch could be launched from a feature
 # branch, where checkout would compile that branch while release-please — which targets the default
@@ -34,39 +36,55 @@ env:
 # gets its own run instead.
 
 jobs:
-  # The fixture list is DISCOVERED, never hardcoded: a matrix literal would silently stop covering
-  # any fixture added later, and a fixture nobody compiles is exactly the hole this gate exists to
-  # close. Empty is a hard error rather than an empty matrix, because an empty matrix would skip
-  # `compile`, and a skipped need would skip `release` — failing open on the release path.
+  # The fixture list is DISCOVERED, never hardcoded. A push that changes version.txt or the
+  # release manifest — the release PR's merge — or whose parent cannot be diffed compiles EVERY
+  # fixture, and an empty list there is a hard error: a skipped compile must never reach a tag.
+  # Any other push compiles the fixtures it can break, possibly none.
   discover:
     runs-on: ubuntu-latest
     outputs:
-      fixtures: ${{ steps.list.outputs.fixtures }}
+      shards: ${{ steps.list.outputs.shards }}
+      full: ${{ steps.list.outputs.full }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - id: list
         run: |
           set -euo pipefail
-          fixtures="$(find tests/validate -maxdepth 1 \( -name '*.yaml' -o -name '*.yml' \) \
-                        | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
-          count="$(jq -r 'length' <<<"$fixtures")"
-          if [ "$count" -eq 0 ]; then
-            echo "::error::no validate fixtures found — refusing to let a release proceed uncompiled"
-            exit 1
+          bash scripts/select-fixtures.sh --self-test
+          before="${{ github.event.before }}"
+          if ! git cat-file -e "${before}^{commit}" 2>/dev/null \
+             || git diff --name-only "${before}" "${{ github.sha }}" \
+                  | grep -qxE 'version\.txt|\.release-please-manifest\.json'; then
+            full=true
+            bash scripts/select-fixtures.sh --all >selected.txt
+            if [ ! -s selected.txt ]; then
+              echo "::error::no validate fixtures found — refusing to let a release proceed uncompiled"
+              exit 1
+            fi
+          else
+            full=false
+            bash scripts/select-fixtures.sh "${before}" "${{ github.sha }}" >selected.txt
           fi
-          echo "discovered ${count} fixture(s): $fixtures"
-          echo "fixtures=${fixtures}" >>"$GITHUB_OUTPUT"
+          echo "full=${full}; selected $(grep -c . selected.txt || true) fixture(s):"
+          cat selected.txt
+          shards="$(jq -R -s -c 'split("\n") | map(select(length > 0)) as $f
+                      | [range(0; $f | length; 8) as $i | $f[$i:$i + 8] | join(" ")]' selected.txt)"
+          echo "full=${full}" >>"$GITHUB_OUTPUT"
+          echo "shards=${shards}" >>"$GITHUB_OUTPUT"
 
-  # One job per fixture. Serially this was ~52 minutes of compiling; in parallel the gate costs
-  # about as long as the single slowest fixture, and stays flat as fixtures are added.
-  # fail-fast: false so one broken fixture still lets every other one report in the same run.
+  # Shards of up to eight fixtures share one toolchain restore and one compiler cache, which costs
+  # far fewer runner minutes than a job per fixture. fail-fast: false so every shard reports.
   compile:
     needs: discover
+    if: needs.discover.outputs.shards != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        fixture: ${{ fromJSON(needs.discover.outputs.fixtures) }}
+        fixtures: ${{ fromJSON(needs.discover.outputs.shards) }}
+    name: compile (${{ matrix.fixtures }})
     steps:
       - uses: actions/checkout@v4
 
@@ -75,16 +93,27 @@ jobs:
         with:
           python-version: "3.12"
 
-      # A cold PlatformIO toolchain download dominates each leg; the key pins the ESPHome version
-      # so a bump re-primes the cache instead of reusing a stale toolchain.
-      - name: Cache the PlatformIO toolchain
+      # ESPHome compiles through ccache whenever it is on PATH; the runner image has none.
+      - name: Install ccache
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+
+      # Saved here, on main, where every pull request can restore them. The toolchain key pins the
+      # ESPHome version, so a bump downloads the matching ESP-IDF once.
+      - name: Cache the ESP-IDF toolchain
         uses: actions/cache@v4
         with:
           path: |
-            ~/.platformio
+            ~/.cache/esphome/idf
+            !~/.cache/esphome/idf/ccache
             ~/.cache/pip
-          key: pio-${{ runner.os }}-esphome-${{ env.ESPHOME_VERSION }}
-          restore-keys: pio-${{ runner.os }}-esphome-
+          key: esphome-idf-${{ runner.os }}-${{ env.ESPHOME_VERSION }}
+
+      - name: Cache the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/esphome/idf/ccache
+          key: esphome-ccache-${{ runner.os }}-${{ env.ESPHOME_VERSION }}-${{ github.run_id }}-${{ strategy.job-index }}
+          restore-keys: esphome-ccache-${{ runner.os }}-${{ env.ESPHOME_VERSION }}-
 
       - name: Install ESPHome ${{ env.ESPHOME_VERSION }}
         run: pip install "esphome==${ESPHOME_VERSION}"
@@ -92,8 +121,8 @@ jobs:
       - name: Materialize the main SHA into validate fixtures
         run: bash scripts/materialize-sdk-ref.sh "${{ github.sha }}"
 
-      - name: esphome compile ${{ matrix.fixture }}
-        run: esphome compile "${{ matrix.fixture }}"
+      - name: esphome compile
+        run: bash scripts/compile-fixtures.sh ${{ matrix.fixtures }}
 
   # The executable negative harness needs esphome but not a build, so it is its own job rather than
   # something repeated in all N compile legs. Parity only matches names against fixture FILENAMES;
@@ -169,7 +198,13 @@ jobs:
         run: bash scripts/check-contract-diff.sh --negative-parity
 
   release:
-    needs: [compile, negative, gates]
+    needs: [discover, compile, negative, gates]
+    # A compile skipped because the push selected no fixture still maintains the release PR.
+    if: >-
+      always() && needs.discover.result == 'success' && needs.negative.result == 'success'
+      && needs.gates.result == 'success'
+      && (needs.compile.result == 'success'
+          || (needs.compile.result == 'skipped' && needs.discover.outputs.full != 'true'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -207,6 +242,12 @@ jobs:
             echo "this commit is not a release PR merge (pending release merge: '${merged:-none}') — maintaining the release PR only."
             echo "publish=false" >>"$GITHUB_OUTPUT"
           fi
+
+      - name: Refuse to publish a commit that was not fully compiled
+        if: steps.guard.outputs.publish == 'true' && needs.discover.outputs.full != 'true'
+        run: |
+          echo "::error::this is the release merge, but not every fixture was compiled; re-run this workflow"
+          exit 1
 
       - name: Maintain the release PR (no release)
         if: steps.guard.outputs.publish != 'true'

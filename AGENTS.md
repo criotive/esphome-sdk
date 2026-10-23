@@ -58,8 +58,8 @@ patch, both in `release-please-config.json`.)
 ## How a release happens
 
 1. You merge ordinary PRs into `main` with conventional subjects.
-2. `release-gate.yml` runs on that push: `compile` builds every validate fixture (one job each, in
-   parallel), `negative` runs the executable negative harness, and `gates` re-runs every invariant
+2. `release-gate.yml` runs on that push: `compile` builds the validate fixtures the push can break
+   (`scripts/select-fixtures.sh`, in shards of eight), `negative` runs the executable negative harness, and `gates` re-runs every invariant
    script including the contract gate against the last published tag. Only then does release-please refresh the release PR holding the computed version and
    CHANGELOG entry.
 3. You read that PR — the version and the changelog are the reviewable artifact — and merge it.
@@ -160,9 +160,9 @@ core, and is correctly not required.
 
 | workflow | trigger | does |
 |---|---|---|
-| `validate.yml` | pull request | all gates + `esphome config` over `tests/validate/` |
+| `validate.yml` | pull request | all gates + `esphome config` over `tests/validate/` + `esphome compile` of the fixtures the change can break |
 | `public-naming.yml` | pull request (incl. `edited`) | the public-naming gate over branch, title, body and commit subjects |
-| `release-gate.yml` | push to `main` | `discover` → `compile` (one parallel job per fixture, real `esphome compile`), plus `negative` and `gates` (every invariant script + contract gate vs the last published tag); then `release` (release-please), which **needs** all three |
+| `release-gate.yml` | push to `main` | `discover` → `compile` (real `esphome compile` in shards: the fixtures the push can break, and **every** fixture on the release PR's merge), plus `negative` and `gates` (every invariant script + contract gate vs the last published tag); then `release` (release-please), which **needs** all three |
 | `release.yml` | tag push / manual | belt-and-braces compile against an already-published tag |
 
 ## House style
