@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0](https://github.com/criotive/esphome-sdk/compare/v0.5.1...v0.6.0) (2026-10-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **serial-api:** modules/serial_api.yaml adds two required substitutions (serial_api_tx_pin, serial_api_rx_pin) with no default. modules/ is one shared namespace, so check-contract-diff.sh classifies these as breaking. No deployed config breaks: nothing imports the opt-in module yet.
+
+### Features
+
+* **serial_api:** read path, entity enumeration and exposure rule ([71ce99e](https://github.com/criotive/esphome-sdk/commit/71ce99e39d3b7020e28a7b67de33764ccb21dc36))
+* **serial_api:** write path (SET) and per-type value adapters ([8644193](https://github.com/criotive/esphome-sdk/commit/86441937238734255b3e0f8dbc2c0ab532540f37))
+* **serial-api:** module, required pins and the pin-conflict validation gate ([e4a3d27](https://github.com/criotive/esphome-sdk/commit/e4a3d2733a88c79be6232a9c43460dab3855fdb2))
+
+
+### Documentation
+
+* **serial-api:** protocol reference, wiring and exposure contract ([e8b83f8](https://github.com/criotive/esphome-sdk/commit/e8b83f849873d3d6bbf69ff56d5dc0e0fb0351a6))
+
 ## [0.5.1](https://github.com/criotive/esphome-sdk/compare/v0.5.0...v0.5.1) (2026-10-21)
 
 
