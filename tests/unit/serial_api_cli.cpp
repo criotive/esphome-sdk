@@ -18,6 +18,13 @@
 //   hello      <hexname> <hexver>     print format_hello
 //   ent        <type> <oid> <rw|ro> <hexname> [domain...]   print format_ent
 //   state      <address> <hexval>     print format_state
+//   setswitch  <hexval>               print "on" | "off" | "toggle" | "bad"
+//   setlight   <hexval>               print "on" | "off" | "toggle" | "json" | "bad"
+//   setnumber  <hexval> <min> <max>   print "ok=<value>" | "bad"
+//   settext    <hexval> <min> <max>   print "ok" | "bad"
+//   setselect  <hexval> <hexopt>...   print "ok" | "bad"
+//   setbutton  <hexval>               print "ok" | "bad"
+//   setresp    <outcome> <address>    print format_set_response (outcome: ok|bad|readonly|unsupported)
 
 #include <cstdio>
 #include <cstdlib>
@@ -183,6 +190,78 @@ int main(int argc, char **argv) {
     // statef <float> <has_state 0|1> — exercises format_state_float directly.
     bool has_state = std::string(argv[3]) == "1";
     std::printf("%s\n", proto::format_state_float(std::strtof(argv[2], nullptr), has_state).c_str());
+    return 0;
+  }
+  if (mode == "setswitch") {
+    proto::SwitchCommand command;
+    if (proto::check_switch_value(from_hex(argv[2]), command) != proto::ValueCheck::OK)
+      std::printf("bad\n");
+    else if (command == proto::SwitchCommand::TOGGLE)
+      std::printf("toggle\n");
+    else
+      std::printf("%s\n", command == proto::SwitchCommand::ON ? "on" : "off");
+    return 0;
+  }
+  if (mode == "setlight") {
+    proto::LightCommand command;
+    if (proto::check_light_value(from_hex(argv[2]), command) != proto::ValueCheck::OK) {
+      std::printf("bad\n");
+      return 0;
+    }
+    switch (command) {
+      case proto::LightCommand::ON:
+        std::printf("on\n");
+        break;
+      case proto::LightCommand::OFF:
+        std::printf("off\n");
+        break;
+      case proto::LightCommand::TOGGLE:
+        std::printf("toggle\n");
+        break;
+      case proto::LightCommand::JSON:
+        std::printf("json\n");
+        break;
+    }
+    return 0;
+  }
+  if (mode == "setnumber") {
+    float out = 0.0f;
+    if (proto::check_number_value(from_hex(argv[2]), std::strtof(argv[3], nullptr),
+                                  std::strtof(argv[4], nullptr), out) != proto::ValueCheck::OK)
+      std::printf("bad\n");
+    else
+      std::printf("ok=%s\n", proto::format_state_float(out, true).c_str());
+    return 0;
+  }
+  if (mode == "settext") {
+    bool ok = proto::check_text_value(from_hex(argv[2]), std::stoi(argv[3]), std::stoi(argv[4])) ==
+              proto::ValueCheck::OK;
+    std::printf("%s\n", ok ? "ok" : "bad");
+    return 0;
+  }
+  if (mode == "setselect") {
+    std::vector<std::string> options;
+    for (int i = 3; i < argc; i++)
+      options.push_back(from_hex(argv[i]));
+    bool ok = proto::check_select_value(from_hex(argv[2]), options) == proto::ValueCheck::OK;
+    std::printf("%s\n", ok ? "ok" : "bad");
+    return 0;
+  }
+  if (mode == "setbutton") {
+    bool ok = proto::check_button_value(from_hex(argv[2])) == proto::ValueCheck::OK;
+    std::printf("%s\n", ok ? "ok" : "bad");
+    return 0;
+  }
+  if (mode == "setresp") {
+    std::string which = argv[2];
+    proto::SetOutcome outcome = proto::SetOutcome::OK;
+    if (which == "bad")
+      outcome = proto::SetOutcome::BAD_VALUE;
+    else if (which == "readonly")
+      outcome = proto::SetOutcome::READ_ONLY;
+    else if (which == "unsupported")
+      outcome = proto::SetOutcome::UNSUPPORTED;
+    std::printf("%s\n", proto::format_set_response(outcome, argv[3]).c_str());
     return 0;
   }
 

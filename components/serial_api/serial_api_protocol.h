@@ -84,25 +84,58 @@ static constexpr const char *MQTT_STATUS_OBJECT_ID = "status";
 static constexpr const char *MQTT_STATUS_NAME = "MQTT status";
 const char *mqtt_status_value(bool connected);
 
-// Response-line formatters. Each returns the exact wire line WITHOUT the trailing '\n'; the caller
-// terminates. They take primitives so the host tests can assert byte-exact output.
+// SET value validators. The component runs them before the entity's call API, because ESPHome's
+// number, text and select calls silently decline an out-of-bounds value (ESPHome 2026.9.1), which
+// would otherwise answer OK for a write that never happened.
+enum class ValueCheck : uint8_t { OK, BAD_VALUE };
+
+// The vocabulary of the MQTT switch command topic.
+enum class SwitchCommand : uint8_t { ON, OFF, TOGGLE };
+ValueCheck check_switch_value(const std::string &value, SwitchCommand &command);
+
+// A finite decimal within [min_value, max_value], inclusive like NumberCall::perform. A NaN bound
+// does not constrain.
+ValueCheck check_number_value(const std::string &value, float min_value, float max_value, float &out);
+
+// The byte length within [min_length, max_length], as TextCall::validate_() measures it.
+ValueCheck check_text_value(const std::string &value, int min_length, int max_length);
+
+// Exact, byte-for-byte membership.
+ValueCheck check_select_value(const std::string &value, const std::vector<std::string> &options);
+
+ValueCheck check_button_value(const std::string &value);
+
+// ON, OFF and TOGGLE, or a JSON object in the MQTT light command schema. Only the JSON shape is
+// checked here; the component parses it.
+enum class LightCommand : uint8_t { ON, OFF, TOGGLE, JSON };
+ValueCheck check_light_value(const std::string &value, LightCommand &command);
+
+enum class SetOutcome : uint8_t {
+  OK,
+  BAD_VALUE,
+  READ_ONLY,    // a read-only type: sensor, binary_sensor, text_sensor, mqtt/status
+  UNSUPPORTED,  // a type without a write adapter
+};
+
+// "OK", or `ERR <code> <address>`.
+std::string format_set_response(SetOutcome outcome, const std::string &address);
+
+// Each formatter returns the wire line without its terminating '\n'.
 std::string format_err(const char *code, const std::string &detail);
 std::string format_err(const char *code);
 std::string format_hello(const std::string &device_name, const std::string &firmware_version);
 std::string format_state(const std::string &address, const std::string &value);
 std::string format_evt(const std::string &address, const std::string &value);
 
-// ENT line. `domain` is the already-formatted, type-specific suffix (empty for types without one).
+// `domain` is the type-specific suffix, empty for types without one.
 std::string format_ent(const std::string &type, const std::string &object_id, bool writable,
                        const std::string &name, const std::string &domain);
 
-// Type-specific ENT domain suffixes.
 std::string format_number_domain(float min_value, float max_value, float step);
 std::string format_text_domain(int min_length, int max_length);
 std::string format_select_domain(const std::vector<std::string> &options);
 
-// Render a state float: "NaN" when unpublished, otherwise a compact decimal with no exponent and no
-// trailing zeros. Shared by sensor and number so both serialise identically.
+// "NaN" when unpublished, otherwise the shortest decimal that parses back to the same float.
 std::string format_state_float(float value, bool has_state);
 
 }  // namespace protocol

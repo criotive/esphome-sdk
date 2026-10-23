@@ -216,6 +216,86 @@ Exposure exposure_of(const std::string &object_id, bool internal) {
 
 const char *mqtt_status_value(bool connected) { return connected ? "online" : "offline"; }
 
+ValueCheck check_switch_value(const std::string &value, SwitchCommand &command) {
+  if (value == "ON") {
+    command = SwitchCommand::ON;
+  } else if (value == "OFF") {
+    command = SwitchCommand::OFF;
+  } else if (value == "TOGGLE") {
+    command = SwitchCommand::TOGGLE;
+  } else {
+    return ValueCheck::BAD_VALUE;
+  }
+  return ValueCheck::OK;
+}
+
+ValueCheck check_number_value(const std::string &value, float min_value, float max_value, float &out) {
+  if (value.empty())
+    return ValueCheck::BAD_VALUE;
+  // strtof also accepts leading whitespace and hex floats ("0x1p2"); neither is a wire decimal.
+  if (value.front() == ' ' || value.find_first_of("xX") != std::string::npos)
+    return ValueCheck::BAD_VALUE;
+  const char *begin = value.c_str();
+  char *end = nullptr;
+  float parsed = std::strtof(begin, &end);
+  if (end != begin + value.size())
+    return ValueCheck::BAD_VALUE;
+  if (!std::isfinite(parsed))
+    return ValueCheck::BAD_VALUE;
+  if (parsed < min_value || parsed > max_value)
+    return ValueCheck::BAD_VALUE;
+  out = parsed;
+  return ValueCheck::OK;
+}
+
+ValueCheck check_text_value(const std::string &value, int min_length, int max_length) {
+  int sz = static_cast<int>(value.size());
+  if (sz < min_length || sz > max_length)
+    return ValueCheck::BAD_VALUE;
+  return ValueCheck::OK;
+}
+
+ValueCheck check_select_value(const std::string &value, const std::vector<std::string> &options) {
+  for (const std::string &option : options) {
+    if (option == value)
+      return ValueCheck::OK;
+  }
+  return ValueCheck::BAD_VALUE;
+}
+
+ValueCheck check_button_value(const std::string &value) {
+  return value == "PRESS" ? ValueCheck::OK : ValueCheck::BAD_VALUE;
+}
+
+ValueCheck check_light_value(const std::string &value, LightCommand &command) {
+  if (value == "ON") {
+    command = LightCommand::ON;
+  } else if (value == "OFF") {
+    command = LightCommand::OFF;
+  } else if (value == "TOGGLE") {
+    command = LightCommand::TOGGLE;
+  } else if (value.size() >= 2 && value.front() == '{' && value.back() == '}') {
+    command = LightCommand::JSON;
+  } else {
+    return ValueCheck::BAD_VALUE;
+  }
+  return ValueCheck::OK;
+}
+
+std::string format_set_response(SetOutcome outcome, const std::string &address) {
+  switch (outcome) {
+    case SetOutcome::OK:
+      return "OK";
+    case SetOutcome::BAD_VALUE:
+      return format_err(err::BAD_VALUE, address);
+    case SetOutcome::READ_ONLY:
+      return format_err(err::READ_ONLY, address);
+    case SetOutcome::UNSUPPORTED:
+      return format_err(err::UNSUPPORTED_TYPE, address);
+  }
+  return format_err(err::BAD_VALUE, address);
+}
+
 std::string format_err(const char *code, const std::string &detail) {
   std::string out = "ERR ";
   out += code;

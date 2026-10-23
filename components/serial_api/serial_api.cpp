@@ -72,7 +72,7 @@ void SerialAPI::process_line_(const std::string &line) {
       this->send_hello_();
       break;
     case protocol::Verb::SET:
-      this->emit_line_(protocol::format_err(protocol::err::PARSE, "set-unimplemented"));
+      this->handle_set_(cmd);
       break;
     case protocol::Verb::UNKNOWN:
       this->emit_line_(protocol::format_err(protocol::err::PARSE));
@@ -163,6 +163,36 @@ void SerialAPI::poll_mqtt_status_() {
   if (this->subscribed_)
     this->emit_line_(protocol::format_evt(this->mqtt_status_address_(), protocol::mqtt_status_value(connected)));
 #endif
+}
+
+void SerialAPI::handle_set_(const protocol::Command &cmd) {
+#ifdef USE_MQTT
+  if (SerialAPI::is_mqtt_status_(cmd)) {
+    this->emit_line_(protocol::format_set_response(protocol::SetOutcome::READ_ONLY, this->mqtt_status_address_()));
+    return;
+  }
+#endif
+  // `type` is an X-macro parameter, so `cmd.type` inside the macro body would be substituted.
+  const std::string &req_type = cmd.type;
+  const std::string &req_object_id = cmd.object_id;
+  const std::string &value = cmd.value;
+  // NOLINTBEGIN(bugprone-macro-parentheses)
+#define ENTITY_TYPE_(type, singular, plural, count, upper) \
+  if (req_type == #singular) { \
+    for (auto *entity : App.get_##plural()) { \
+      if (this->object_id_of_(entity) == req_object_id) { \
+        this->respond_set_(entity, #singular, value); \
+        return; \
+      } \
+    } \
+  }
+#define ENTITY_CONTROLLER_TYPE_(type, singular, plural, count, upper, callback) \
+  ENTITY_TYPE_(type, singular, plural, count, upper)
+#include "esphome/core/entity_types.h"
+#undef ENTITY_TYPE_
+#undef ENTITY_CONTROLLER_TYPE_
+  // NOLINTEND(bugprone-macro-parentheses)
+  this->emit_line_(protocol::format_err(protocol::err::UNKNOWN_ENTITY, cmd.type + "/" + cmd.object_id));
 }
 
 void SerialAPI::send_hello_() {

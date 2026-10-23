@@ -157,6 +157,117 @@ inline std::string serial_domain(light::LightState *e) {
 }
 #endif
 
+// Writes go through each entity's public call API, so a serial write publishes exactly as an MQTT
+// command does. Values are validated first: see protocol::ValueCheck.
+template<class T> inline protocol::SetOutcome serial_write(T * /*e*/, const std::string & /*value*/) {
+  return protocol::SetOutcome::UNSUPPORTED;
+}
+
+#ifdef USE_SWITCH
+inline protocol::SetOutcome serial_write(switch_::Switch *e, const std::string &value) {
+  protocol::SwitchCommand command;
+  if (protocol::check_switch_value(value, command) != protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  switch (command) {
+    case protocol::SwitchCommand::ON:
+      e->turn_on();
+      break;
+    case protocol::SwitchCommand::OFF:
+      e->turn_off();
+      break;
+    case protocol::SwitchCommand::TOGGLE:
+      e->toggle();
+      break;
+  }
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef USE_NUMBER
+inline protocol::SetOutcome serial_write(number::Number *e, const std::string &value) {
+  float parsed;
+  if (protocol::check_number_value(value, e->traits.get_min_value(), e->traits.get_max_value(), parsed) !=
+      protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  e->make_call().set_value(parsed).perform();
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef USE_TEXT
+inline protocol::SetOutcome serial_write(text::Text *e, const std::string &value) {
+  if (protocol::check_text_value(value, e->traits.get_min_length(), e->traits.get_max_length()) !=
+      protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  e->make_call().set_value(value).perform();
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef USE_SELECT
+inline protocol::SetOutcome serial_write(select::Select *e, const std::string &value) {
+  std::vector<std::string> options;
+  for (const char *option : e->traits.get_options())
+    options.emplace_back(option);
+  if (protocol::check_select_value(value, options) != protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  e->make_call().set_option(value).perform();
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef USE_BUTTON
+inline protocol::SetOutcome serial_write(button::Button *e, const std::string &value) {
+  if (protocol::check_button_value(value) != protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  e->press();
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef SERIAL_API_USE_LIGHT
+inline protocol::SetOutcome serial_write(light::LightState *e, const std::string &value) {
+  protocol::LightCommand command;
+  if (protocol::check_light_value(value, command) != protocol::ValueCheck::OK)
+    return protocol::SetOutcome::BAD_VALUE;
+  switch (command) {
+    case protocol::LightCommand::ON:
+      e->turn_on().perform();
+      break;
+    case protocol::LightCommand::OFF:
+      e->turn_off().perform();
+      break;
+    case protocol::LightCommand::TOGGLE:
+      e->toggle().perform();
+      break;
+    case protocol::LightCommand::JSON: {
+      bool parsed = json::parse_json(value, [e](JsonObject root) -> bool {
+        if (root.isNull())
+          return false;
+        auto call = e->make_call();
+        light::LightJSONSchema::parse_json(*e, call, root);
+        call.perform();
+        return true;
+      });
+      if (!parsed)
+        return protocol::SetOutcome::BAD_VALUE;
+      break;
+    }
+  }
+  return protocol::SetOutcome::OK;
+}
+#endif
+#ifdef USE_SENSOR
+inline protocol::SetOutcome serial_write(sensor::Sensor * /*e*/, const std::string & /*value*/) {
+  return protocol::SetOutcome::READ_ONLY;
+}
+#endif
+#ifdef USE_BINARY_SENSOR
+inline protocol::SetOutcome serial_write(binary_sensor::BinarySensor * /*e*/, const std::string & /*value*/) {
+  return protocol::SetOutcome::READ_ONLY;
+}
+#endif
+#ifdef USE_TEXT_SENSOR
+inline protocol::SetOutcome serial_write(text_sensor::TextSensor * /*e*/, const std::string & /*value*/) {
+  return protocol::SetOutcome::READ_ONLY;
+}
+#endif
+
 class SerialAPI : public uart::UARTDevice, public Component, public Controller {
  public:
   void setup() override;
@@ -182,6 +293,7 @@ class SerialAPI : public uart::UARTDevice, public Component, public Controller {
   void handle_list_();
   void handle_get_(const protocol::Command &cmd);
   void handle_get_all_();
+  void handle_set_(const protocol::Command &cmd);
   void send_hello_();
   void emit_line_(const std::string &line);
   std::string object_id_of_(EntityBase *entity);
@@ -230,6 +342,16 @@ class SerialAPI : public uart::UARTDevice, public Component, public Controller {
         this->emit_line_(protocol::format_err(protocol::err::UNSUPPORTED_TYPE, address));
         break;
     }
+  }
+
+  template<class T> void respond_set_(T *entity, const char *type_name, const std::string &value) {
+    std::string object_id = this->object_id_of_(entity);
+    if (protocol::exposure_of(object_id, entity->is_internal()) != protocol::Exposure::FULL) {
+      this->emit_line_(protocol::format_err(protocol::err::DENIED, object_id));
+      return;
+    }
+    std::string address = std::string(type_name) + "/" + object_id;
+    this->emit_line_(protocol::format_set_response(serial_write(entity, value), address));
   }
 
   template<class T> void on_entity_update_(T *entity, const char *type_name) {
