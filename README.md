@@ -911,8 +911,9 @@ the entities themselves stay in the device's own config.
 
 - **The device's entities on a UART, no broker in the path.** Anything that opens a serial port can
   list, read and drive every entity the device exposes on MQTT — system controls included — and
-  receives every state change as it happens. The protocol, wiring and exposure rule are in
-  [`docs/serial-api.md`](docs/serial-api.md). **Import it when** a room is driven over a cable,
+  receives every state change as it happens. The protocol, for client developers, is in
+  [`docs/serial-api.md`](docs/serial-api.md); enabling it and choosing the pins are in
+  [`docs/serial-api-firmware.md`](docs/serial-api-firmware.md). **Import it when** a room is driven over a cable,
   alongside or instead of MQTT. It is opt-in: nothing changes for a device that does not import it.
 
   **The pins are required, with no default.** `serial_api_tx_pin` and `serial_api_rx_pin` have no
