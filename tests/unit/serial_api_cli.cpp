@@ -186,6 +186,10 @@ int main(int argc, char **argv) {
     std::printf("%s\n", proto::format_state(argv[2], from_hex(argv[3])).c_str());
     return 0;
   }
+  if (mode == "evt") {
+    std::printf("%s\n", proto::format_evt(argv[2], from_hex(argv[3])).c_str());
+    return 0;
+  }
   if (mode == "statef") {
     // statef <float> <has_state 0|1> — exercises format_state_float directly.
     bool has_state = std::string(argv[3]) == "1";

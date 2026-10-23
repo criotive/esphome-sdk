@@ -68,6 +68,10 @@ bool has_control_byte(const std::string &s);
 // Rejects overlong encodings, surrogate halves and code points beyond U+10FFFF.
 bool is_valid_utf8(const std::string &s);
 
+// Every byte below 0x20 and every byte that is not part of valid UTF-8 becomes U+FFFD, so a value
+// the device sends can never end a line early or forge a reply.
+std::string printable(const std::string &s);
+
 // HIDDEN: absent from LIST; GET and SET answer ERR denied. READ_ONLY: listed `ro`; SET answers
 // ERR denied. FULL: whatever the entity type allows.
 enum class Exposure : uint8_t { HIDDEN, READ_ONLY, FULL };

@@ -362,6 +362,24 @@ class WireLineTest(unittest.TestCase):
         # A raw string value with a space survives verbatim.
         self.assertEqual(_run("state", "text/label", b"a b".hex()).strip(), "STATE text/label a b")
 
+    def test_a_newline_in_a_value_cannot_split_the_line(self):
+        # A text state written over MQTT can hold any byte; on serial it must stay one line.
+        self.assertEqual(_run("state", "text/label", b"abc\nOK".hex()).strip(), "STATE text/label abc\ufffdOK")
+        self.assertEqual(_run("evt", "text/label", b"abc\nOK".hex()).strip(), "EVT text/label abc\ufffdOK")
+
+    def test_control_bytes_and_invalid_utf8_become_replacement_characters(self):
+        self.assertEqual(_run("evt", "text/label", b"a\rb\x00c\x1fd".hex()).strip(),
+                         "EVT text/label a\ufffdb\ufffdc\ufffdd")
+        self.assertEqual(_run("state", "text_sensor/ssid", b"caf\xe9 \xed\xa0\x80".hex()).strip(),
+                         "STATE text_sensor/ssid caf\ufffd \ufffd\ufffd\ufffd")
+
+    def test_valid_utf8_is_sent_unchanged(self):
+        value = "ação ✓ 🚗".encode()
+        self.assertEqual(_run("evt", "text/label", value.hex()).strip(), "EVT text/label ação ✓ 🚗")
+
+    def test_quoted_names_cannot_split_the_line(self):
+        self.assertEqual(_quote(b"Door\nLock"), '"Door\ufffdLock"'.encode())
+
 
 class SwitchWriteTest(unittest.TestCase):
     """SET switch/<id> ON|OFF; every other token is ERR bad-value (no write)."""
