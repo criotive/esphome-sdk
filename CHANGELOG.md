@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/criotive/esphome-sdk/compare/v0.6.0...v0.6.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **serial-api:** build with ESPHome 2026.10 ([73dc701](https://github.com/criotive/esphome-sdk/commit/73dc70163a4963321ebbf821b000d1582ce6ac59))
+
 ## [0.6.0](https://github.com/criotive/esphome-sdk/compare/v0.5.1...v0.6.0) (2026-10-23)
 
 
