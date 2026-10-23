@@ -1,5 +1,6 @@
 """Serial API: the device's entities on a UART, as a self-describing line protocol."""
 
+import inspect
 from typing import Any
 
 import esphome.codegen as cg
@@ -135,5 +136,9 @@ async def to_code(config: dict[str, Any]) -> None:
     if CONF_FIRMWARE_VERSION in config:
         cg.add(var.set_firmware_version(config[CONF_FIRMWARE_VERSION]))
 
-    # Sizes the ControllerRegistry, as components/api does; MQTT is not a Controller.
-    CORE.register_controller()
+    # As components/api does; MQTT is not a Controller. ESPHome 2026.10 takes the controller and
+    # generates the state-update dispatch to it; 2026.9 only counts it to size the registry.
+    if inspect.signature(CORE.register_controller).parameters:
+        CORE.register_controller(var)
+    else:
+        CORE.register_controller()

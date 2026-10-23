@@ -8,7 +8,7 @@ namespace serial_api {
 static const char *const TAG = "serial_api";
 
 void SerialAPI::setup() {
-#ifdef USE_CONTROLLER_REGISTRY
+#if defined(USE_CONTROLLER_REGISTRY) && defined(SERIAL_API_CONTROLLER_BASE)
   ControllerRegistry::register_controller(this);
 #endif
   this->send_hello_();
