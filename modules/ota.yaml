@@ -46,7 +46,15 @@ external_components:
       type: git
       url: https://github.com/criotive/esphome-sdk
       ref: ${sdk_ref}
-    components: [sdk_boot]
+    components: [sdk_boot, ack_button]
+
+esp32:
+  framework:
+    sdkconfig_options:
+      # Stamps firmware_version into the image header (esp_app_desc_t), which is where System Rollback
+      # reads the version the other slot holds. Without it ESPHome writes its own release there.
+      CONFIG_APP_PROJECT_VER_FROM_CONFIG: "y"
+      CONFIG_APP_PROJECT_VER: '"${firmware_version}"'
 
 # Armed from `sdk_boot`, not `esphome: on_boot`: a device config's mapping-form
 # `on_boot` replaces that list, and a fresh image would then run unguarded.
@@ -54,6 +62,9 @@ sdk_boot:
   - priority: 600
     then:
       - script.execute: script_rollback
+  - priority: -100
+    then:
+      - script.execute: script_rollback_target
 
 logger:
   logs:
@@ -106,6 +117,8 @@ ota:
           char buffer[112];
           snprintf(buffer, sizeof(buffer), "OTA update error %d: %s", x, reason);
           id(ota_status).publish_state(buffer);
+      # A failed download may have overwritten part of the other slot.
+      - script.execute: script_rollback_target
 
 http_request:
   # The url's ticket is the only credential on the download, so the server must be authenticated.
@@ -122,6 +135,42 @@ text_sensor:
     name: "OTA status"
     id: ota_status
     update_interval: never
+  # The version System Rollback would boot, empty when there is none. Named "System ..." so it
+  # publishes under the system_ prefix that marks device system controls (see controls.yaml).
+  - platform: template
+    name: "System Rollback Target"
+    id: rollback_target
+    update_interval: never
+
+button:
+  # Boots the image in the other app slot. The target is checked again on every press, so a stale
+  # value on the broker can never make the device boot an image that is not a valid target.
+  - platform: ack_button
+    name: "System Rollback"
+    on_press:
+      - then:
+          - script.execute: script_rollback_target
+          - script.wait: script_rollback_target
+          - if:
+              condition:
+                lambda: 'return id(rollback_target).state.empty();'
+              then:
+                - text_sensor.template.publish:
+                    id: ota_status
+                    state: "Rollback refused: no previous firmware to go back to"
+              else:
+                - text_sensor.template.publish:
+                    id: ota_status
+                    state: !lambda 'return "Rollback to " + id(rollback_target).state;'
+                # Lets the acknowledgement and the status reach the socket before the reboot.
+                - delay: 1s
+                - lambda: |-
+                    esp_err_t err = esp_ota_set_boot_partition(esp_ota_get_next_update_partition(nullptr));
+                    if (err != ESP_OK) {
+                      id(ota_status).publish_state(std::string("Rollback failed: ") + esp_err_to_name(err));
+                      return;
+                    }
+                    App.safe_reboot();
 
 script:
   # The platform's OTA route. criotive_mqtt dispatches the command that carries
@@ -160,6 +209,33 @@ script:
                   if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0)
                     return std::string("OTA update error 17: url is not http(s)");
                   return std::string("OTA update error 16: md5 is not 32 lowercase hex digits");
+
+  # The other slot is a target when the bootloader recorded it as confirmed, or when it is ota_0
+  # holding the USB-flashed image that installed the running one: the bootloader boots ota_0 with no
+  # record, so that image never gets one. Running from ota_0 without a record, the other slot is
+  # whatever a previous life left there, and is never offered. esp_partition_get_sha256 verifies the
+  # whole image, so a slot an interrupted update overwrote is never offered either.
+  - id: script_rollback_target
+    then:
+      - lambda: |-
+          const esp_partition_t *running = esp_ota_get_running_partition();
+          const esp_partition_t *other = esp_ota_get_next_update_partition(nullptr);
+          std::string target;
+          if (other != nullptr && other != running) {
+            esp_ota_img_states_t state;
+            esp_err_t record = esp_ota_get_state_partition(other, &state);
+            bool confirmed = record == ESP_OK && state == ESP_OTA_IMG_VALID;
+            bool flashed_by_usb = record == ESP_ERR_NOT_FOUND &&
+                                  other->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_0 &&
+                                  esp_ota_get_state_partition(running, &state) == ESP_OK;
+            uint8_t sha[32];
+            esp_app_desc_t desc;
+            if ((confirmed || flashed_by_usb) && esp_partition_get_sha256(other, sha) == ESP_OK &&
+                esp_ota_get_partition_description(other, &desc) == ESP_OK) {
+              target = desc.version[0] != '\0' ? desc.version : "?";
+            }
+          }
+          id(rollback_target).publish_state(target);
 
   - id: script_rollback
     then:
