@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.3](https://github.com/criotive/esphome-sdk/compare/v0.6.2...v0.6.3) (2026-10-29)
+
+
+### Features
+
+* **ota:** erase the other slot's header when an update that started writing fails, so it is never a rollback target ([8119c05](https://github.com/criotive/esphome-sdk/commit/8119c05b0488f164e81cf8e27dadabb0238ea453))
+* **ota:** System Rollback boots the previous firmware on demand and refuses when there is none ([9236ac4](https://github.com/criotive/esphome-sdk/commit/9236ac4999226c65973623c65849365dccfde11f))
+
+
+### Documentation
+
+* **ota:** document System Rollback and its two entities ([4162c13](https://github.com/criotive/esphome-sdk/commit/4162c13e146558f9c5f622cdf594b31a9aa1c4ef))
+
 ## [0.6.2](https://github.com/criotive/esphome-sdk/compare/v0.6.1...v0.6.2) (2026-10-23)
 
 
