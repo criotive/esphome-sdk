@@ -576,6 +576,17 @@ alone, and the device reboots out of safe mode after five minutes as ESPHome wou
 loop — a hardware fault rather than a firmware one — the device alternates between them. There is no
 "restart into safe mode" control: a safe mode entered on purpose would fall back too.
 
+**System Rollback boots the previous image on demand.** Pressing the `system_rollback` button boots
+the image in the other app slot, which then has to reach the broker like any update or the watchdog
+returns to the image that was pressed. `system_rollback_target` publishes that image's
+`firmware_version` at boot and after every OTA attempt, and is empty when there is nothing to go back
+to: the slot was never confirmed, an update overwrote it, or a USB flash left it from an earlier
+install. A press with an empty target only publishes `Rollback refused: no previous firmware to go back
+to` on `ota_status`; the device does not reboot. The image that installed a USB-flashed device is
+offered too, although the bootloader keeps no record of it. Images built before v0.6.3 carry ESPHome's
+release (`2026.10.0`) where the version goes, because `ota.yaml` only now stamps `firmware_version`
+into the image header (`CONFIG_APP_PROJECT_VER`).
+
 ## `${sdk_ref}` — pinning the components with the YAML
 
 ESPHome treats `packages:` and `external_components:` as **independent** git sources: a module
@@ -743,8 +754,8 @@ restructuring the others.
   system `command` subscription that dispatches the `ota` command. Needs `ota.yaml` and
   `ciotcfg.yaml`.
 - `ota.yaml` — `safe_mode`, the `http_request` OTA platform, the native ESPHome OTA platform only when
-  `ota_password` is set, `ota_status`, `script_ota_from_command`, the rollback watchdog, and the log
-  levels that keep the OTA url out of the logs. See **Updating over the air**. The rollback watchdog
+  `ota_password` is set, `ota_status`, `script_ota_from_command`, the rollback watchdog, System
+  Rollback, and the log levels that keep the OTA url out of the logs. See **Updating over the air**. The rollback watchdog
   armed from `sdk_boot` here is cancelled by `criotive_mqtt.yaml`'s `on_connect` once the broker is
   reached.
 - `improv_serial.yaml` — Improv over the serial console; opens the console at `115200` when
@@ -791,6 +802,8 @@ the MQTT component `sensor`, not `text_sensor`. An `internal: true` entity publi
 | `wifi.yaml` | WiFi Mac Address | text_sensor (`sensor`) | `wifi_mac_address` |
 | `wifi.yaml` | WiFi Signal Sensor | sensor | `wifi_signal_sensor` |
 | `ota.yaml` | OTA status | text_sensor (`sensor`) | `ota_status` |
+| `ota.yaml` | System Rollback | button (`ack_button`) | `system_rollback` |
+| `ota.yaml` | System Rollback Target | text_sensor (`sensor`) | `system_rollback_target` |
 | `diagnostics.yaml` | Device Info | text_sensor (`sensor`) | `device_info` |
 | `diagnostics.yaml` | Reset Reason | text_sensor (`sensor`) | `reset_reason` |
 | `controls.yaml` | System Shutdown | button (`ack_button`) | `system_shutdown` |
