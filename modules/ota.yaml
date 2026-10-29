@@ -86,11 +86,13 @@ ota:
 
   - platform: http_request
     on_begin:
+      - lambda: 'id(ota_wrote_other_slot) = false;'
       - text_sensor.template.publish:
           id: ota_status
           state: "OTA start"
     on_progress:
       - lambda: |-
+          id(ota_wrote_other_slot) = true;
           char buffer[50];
           snprintf(buffer, sizeof(buffer), "OTA progress %0.1f%%", x);
           id(ota_status).publish_state(buffer);
@@ -117,7 +119,15 @@ ota:
           char buffer[112];
           snprintf(buffer, sizeof(buffer), "OTA update error %d: %s", x, reason);
           id(ota_status).publish_state(buffer);
-      # A failed download may have overwritten part of the other slot.
+      # Once the update has written into the other slot, the image that was there is gone and what
+      # replaced it was rejected, yet the bootloader's record may still call the slot confirmed (an md5
+      # mismatch leaves a complete image). Erasing its header keeps System Rollback and the boot-loop
+      # fallback from ever booting it. Progress only fires after the first write, so a refused or
+      # unreachable download leaves the previous image, and the rollback target, untouched.
+      - lambda: |-
+          if (id(ota_wrote_other_slot)) {
+            esp_partition_erase_range(esp_ota_get_next_update_partition(nullptr), 0, 4096);
+          }
       - script.execute: script_rollback_target
 
 http_request:
@@ -129,6 +139,11 @@ http_request:
   # the request (no max against the current value), so against the boards' own
   # `esp32: watchdog_timeout: 60s` any value here narrows the watchdog instead
   # of widening it. Unset keeps the 60s: the option has no default.
+
+globals:
+  - id: ota_wrote_other_slot
+    type: bool
+    initial_value: "false"
 
 text_sensor:
   - platform: template
