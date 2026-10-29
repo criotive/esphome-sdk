@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/criotive/esphome-sdk/compare/v0.6.3...v0.6.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **hds_v1_1:** poll SW1 instead of taking an interrupt on every edge ([94938fe](https://github.com/criotive/esphome-sdk/commit/94938fec3b7b2abc9669a9bc3d9b8842af1114a2))
+
 ## [0.6.3](https://github.com/criotive/esphome-sdk/compare/v0.6.2...v0.6.3) (2026-10-29)
 
 
