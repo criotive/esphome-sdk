@@ -269,6 +269,8 @@ switch:
 binary_sensor:
   - platform: gpio
     id: sw1_button
+    # Polled: since ESPHome 2025.7 an interrupt fires on every edge, and a noisy line starves the main loop.
+    use_interrupt: false
     pin: 1
     name: "SW1"
     internal: true
