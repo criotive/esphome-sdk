@@ -1,5 +1,5 @@
 substitutions:
-  logger_level: NONE # The level a device boots at.
+  logger_level: NONE # The level a connected device logs at.
   debug_logs_max_level: DEBUG # The most a debug_logs window can raise it to; NONE compiles logs out.
   logger_baud_rate: "0" # Serial off by default; frees GPIO1.
   framework_variant: esp-idf
@@ -55,10 +55,8 @@ logger:
   # `level` is what the binary can ever log and `initial_level` what it boots at. The compiled level
   # is the more verbose of the two knobs, because ESPHome refuses an initial_level above it.
   level: "${ logger_level if ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(logger_level | upper) > ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(debug_logs_max_level | upper) else debug_logs_max_level }"
-  # A device boots offline, so it boots at debug_logs' OFFLINE_LEVEL (WARN, capped at the compiled
-  # level, raised to logger_level when that is more verbose); debug_logs drops to logger_level once
-  # MQTT connects.
-  initial_level: "${ ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'][[['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(logger_level | upper), [2, ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(debug_logs_max_level | upper)] | min] | max] }"
+  # debug_logs raises it to warnings first thing in setup while MQTT is down.
+  initial_level: ${logger_level}
   baud_rate: ${logger_baud_rate}
 
 time:

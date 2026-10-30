@@ -76,7 +76,10 @@ void DebugLogs::open(const std::string &level, int minutes) {
   }
 
   if (requested == ESPHOME_LOG_LEVEL_NONE || minutes <= 0) {
+    const bool was_open = this->open_;
     this->close();
+    if (!was_open)
+      this->publish_status_("debug logs off");
     return;
   }
 
