@@ -8,6 +8,11 @@ substitutions:
   mqtt_system_command_topic: command
   mqtt_discovery: "true"
 
+# Opened and closed by the `logs` system command below; `level` is where it settles once connected.
+debug_logs:
+  id: debug_logs_window
+  level: ${logger_level}
+
 mqtt:
   id: mqtt_client
 
@@ -34,7 +39,9 @@ mqtt:
   # PR#8325 added the worker thread this enables. Measured on our bench with 19
   # forced reconnects and ~40 entities: main-loop worst case 1578ms -> 352ms.
   idf_send_async: true
-  log_topic: # Publishing logs is opt-in.
+  # ESPHome's own log publisher stays off: it streams every line from boot. Logs reach MQTT only
+  # through a debug_logs window, below.
+  log_topic:
 
   # Downlink system commands. The subscription lives here because this module
   # owns the `mqtt:` block -- a second one in another module would have to wire
@@ -64,6 +71,11 @@ mqtt:
                   id: script_ota_from_command
                   url: !lambda 'return x["url"].as<std::string>();'
                   md5: !lambda 'return x["md5"].as<std::string>();'
+        - if:
+            condition:
+              - lambda: 'return x["command"] == "logs";'
+            then:
+              - lambda: 'id(debug_logs_window).open(x["level"] | "DEBUG", x["minutes"] | 30);'
 
   on_connect:
     - then:

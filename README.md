@@ -128,7 +128,8 @@ opt-in composition. A device compiles only the modules it imports.
 | `ota_password` | no | *(empty)* _(safety)_ | *(`ota.yaml`)* empty **removes** the native ESPHome OTA port; set it to open the port, password-protected — see **Updating over the air** |
 | `ota_attempts` | no | `50` _(safety)_ | safe-mode boot attempts — larger recovery budget (ESPHome stock is `5`) |
 | `ota_http_timeout` | no | `15s` _(convenience)_ | *(`ota.yaml`)* `http_request` timeout for the OTA download |
-| `logger_level` | no | `NONE` _(safety)_ | logging is **off by default** — see below |
+| `logger_level` | no | `NONE` _(safety)_ | the level a **connected** device logs at; logging is **off by default** — see below |
+| `debug_logs_max_level` | no | `DEBUG` _(convenience)_ | the most verbose level a [debug logs window](#debug-logs-on-demand--the-mqtt-logs-command) can raise a running device to; `NONE` compiles logs out — see below |
 | `logger_baud_rate` | no | `0` _(safety)_ | `0` **disables** the serial console (skips UART init); `improv_serial.yaml` turns `0` into `115200` — see below |
 | `diagnostics_update_interval` | no | `60s` _(convenience)_ | *(`diagnostics.yaml`)* cadence for debug sensors a device attaches to the `debug` component — see below |
 | `serial_api_tx_pin` | **yes** | — | *(`serial_api.yaml`)* UART TX pin for the serial API; **no default** — every room states it, see **Serial API** |
@@ -294,20 +295,46 @@ sentinel.
 
 ### Logging is off in production by default
 
-`logger_level` defaults to **`NONE`**: a device ships silent and its `logger:` emits nothing until a
-consumer raises the level **deliberately**, per device — never on by default. A chatty default is not
-free: it costs flash, CPU and (when a device also publishes logs) broker traffic on every unit that
-forgot to turn it down.
+`logger_level` defaults to **`NONE`**: a connected device is silent and its `logger:` emits nothing
+until something raises the level **deliberately** — never on by default. A chatty default is not
+free: it costs CPU and (when a device also publishes logs) broker traffic on every unit that forgot
+to turn it down.
 
-To raise it, set the substitution per device to one of ESPHome's levels — `INFO`, `DEBUG`,
-`VERBOSE` or `VERY_VERBOSE`:
+**Until it connects, a device logs warnings and errors.** It boots at `WARN` and `debug_logs` drops it
+to `logger_level` once MQTT connects, and raises it back whenever MQTT drops — so a device that cannot
+reach the platform says why on its serial console, which is the only place anyone can read it then.
+Every connection failure ESPHome reports is a warning or an error with its reason, a few lines per
+retry. Measured on a NodeMCU-32 (ESPHome 2026.9.1):
+
+| failure | what the console shows |
+|---|---|
+| wrong Wi-Fi password | `Disconnected ssid='…' reason='4-Way Handshake Timeout'` |
+| wrong MQTT password | `Connection refused error: 0x5` (MQTT "not authorized") |
+| broker gone | `Last esp-tls error: 0x8004, … socket errno: 104 (Connection reset by peer)`, `Disconnected: TCP disconnected` |
+
+Nothing more verbose is logged offline on purpose: console lines go into a 512-byte UART buffer that
+drains at about 11.5 KB/s at 115200 baud, and a burst that outgrows it blocks the main loop — a cost
+an offline device running its logic must not pay. Improv over serial keeps working: it reads only its
+own framed packets from the same port.
+
+To log at a higher level, set the substitution per device to one of ESPHome's levels — `INFO`,
+`DEBUG`, `VERBOSE` or `VERY_VERBOSE`:
 
 ```yaml
 substitutions:
   logger_level: DEBUG   # opt in per device; production stays NONE
 ```
 
-The knob is unchanged — only its default flipped from `INFO` back to `NONE`.
+**Running silent is not compiling silent.** ESPHome's `logger: level:` is what the binary *can* log —
+statements above it are compiled out and no runtime call can bring them back — while
+`logger: initial_level:` is what it logs from boot. `core.yaml` compiles at the more verbose of
+`logger_level` and `debug_logs_max_level` (default `DEBUG`), so a production device carries its log
+statements, emits none of them once connected, and a
+[debug logs window](#debug-logs-on-demand--the-mqtt-logs-command) can switch them on without a new
+build. A filtered statement costs a function call and a level comparison.
+
+The price is flash: the log strings live in the image. A device too tight on flash to afford them
+sets `debug_logs_max_level: NONE`, which compiles them out as before — and gives up debug windows.
 
 #### The serial console — `logger_baud_rate` and `logger: hardware_uart:`
 
@@ -417,10 +444,49 @@ its availability on one topic.
 only by the factory image, over serial; an OTA writes inside the app slot of the table already on the
 chip. Migrating an existing device means a cable.
 
-### MQTT log publishing is off by default
+### Debug logs on demand — the MQTT `logs` command
 
-`criotive_mqtt.yaml` ships with MQTT log publishing off: **no device streams its logs to MQTT unless
-a consumer opts in.**
+A device publishes its logs only inside a **debug logs window**, which the platform opens per device
+with one JSON message on the same system `command` topic the `ota` command uses:
+
+```json
+{"command": "logs", "level": "DEBUG", "minutes": 30}
+```
+
+- While the window is open, every line the logger emits at or below `level` is published to
+  **`<topic prefix>/debug`**, QoS 0, **never retained**, with the terminal color codes stripped. The
+  topic prefix is the one `ciotcfg` writes, so on criotive's mounted listeners the line arrives
+  under the device's own cloud id like every other topic it publishes.
+- `level` is `ERROR`, `WARN`, `INFO`, `CONFIG` or `DEBUG` (case-insensitive), capped at the level the
+  binary was compiled with (`debug_logs_max_level`). `minutes` is capped at **120**. Both default
+  (`DEBUG`, `30`) when absent.
+- **A window shows what the firmware logs, not every state change.** ESPHome 2026.9.1 logs entity
+  state changes (`'Door' >> ON`) at `VERBOSE`, so a `DEBUG` window carries the device's own
+  `logger.log` steps, warnings, errors and ESPHome's `DEBUG` messages (Wi-Fi, MQTT, OTA). The state
+  changes themselves already reach the broker as entity states. Firmware meant to be debuggable logs
+  each automation step with `logger.log`. `VERBOSE` is not the default ceiling: it adds a few lines of
+  MQTT bookkeeping per state publish, which the rate limit would then spend.
+- **The window always closes on its own**: when `minutes` runs out, on
+  `{"command": "logs", "level": "NONE"}` (or `"minutes": 0`), when MQTT drops — a window exists to
+  publish, and offline the console falls back to warnings — and at every boot, since nothing about a
+  window is persisted. A new `logs` command replaces the open window.
+- The serial console, when the device has one, shows the window's lines too; they are not
+  rate-limited there.
+- The device announces each transition on the same topic — `debug logs on: DEBUG for 30 min`,
+  `debug logs off` — so whoever reads the topic can tell an empty window from a device that never got
+  the command, and a firmware compiled without logs answers `debug logs unavailable: …`.
+- **Rate-limited at the source:** 10 lines per second with a burst of 10. Log lines share ESPHome's
+  30-slot outbound MQTT queue (`idf_send_async`) with entity states, and a full queue drops whatever
+  arrives next — a puzzle's state included — so a chatty firmware loses log lines rather than
+  telemetry. Lines dropped by the limit are counted and reported every 5 seconds as
+  `debug logs: N lines dropped, over 10 lines/s`.
+- The OTA url stays out of the window: `ota.yaml`'s per-tag levels for `http_request` and
+  `http_request.ota` override the global level, which is all a window changes.
+
+### ESPHome's own MQTT log publishing stays off
+
+`criotive_mqtt.yaml` keeps ESPHome's built-in `log_topic` disabled: it streams every line from boot
+at the compiled level, which is what the debug logs window exists to avoid.
 
 This is not the same as omitting the key. ESPHome's `mqtt` component (`mqtt/__init__.py`,
 `validate_config`) **re-injects** a default `${topic_prefix}/debug` log topic (with `retain: true`)

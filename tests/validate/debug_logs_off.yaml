@@ -1,0 +1,29 @@
+# Fixture: debug logs compiled out — debug_logs_max_level: NONE makes the compiled level NONE again, and
+# the debug_logs component must still build when its window can only ever answer "unavailable".
+substitutions:
+  device_name: debug-logs-off-testdev
+  firmware_version: "0.0.0-test"
+  debug_logs_max_level: NONE
+
+esp32:
+  board: esp32dev
+  framework:
+    type: ${framework_variant}
+
+packages:
+  criotive:
+    url: https://github.com/criotive/esphome-sdk
+    ref: __SDK_REF__
+    files:
+      - path: modules/core.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ciotcfg.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/wifi.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/criotive_mqtt.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ota.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/improv_serial.yaml
+        vars: {sdk_ref: __SDK_REF__}
