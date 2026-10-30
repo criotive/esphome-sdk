@@ -300,11 +300,14 @@ until something raises the level **deliberately** — never on by default. A cha
 free: it costs CPU and (when a device also publishes logs) broker traffic on every unit that forgot
 to turn it down.
 
-**Until it connects, a device logs warnings and errors.** It boots at `WARN` and `debug_logs` drops it
-to `logger_level` once MQTT connects, and raises it back whenever MQTT drops — so a device that cannot
-reach the platform says why on its serial console, which is the only place anyone can read it then.
-Every connection failure ESPHome reports is a warning or an error with its reason, a few lines per
-retry. Measured on a NodeMCU-32 (ESPHome 2026.9.1):
+**Until it connects, a device logs warnings and errors.** `debug_logs` raises the level to `WARN` first
+thing in setup — ahead of `ciotcfg`, whose missing-identity error is itself a reason never to connect —
+drops it to `logger_level` once MQTT connects, and raises it back whenever MQTT drops. A device that
+cannot reach the platform therefore says why on its serial console, the only place anyone can read it
+then. Every connection failure ESPHome's own components report is a warning or an error with its
+reason, a few lines per retry; ESP-IDF's internal messages (an mbedTLS handshake step, for instance)
+reach the logger at the compiled level and show only in a `DEBUG` build. Measured on a NodeMCU-32
+(ESPHome 2026.9.1):
 
 | failure | what the console shows |
 |---|---|

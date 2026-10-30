@@ -24,20 +24,24 @@ static constexpr size_t MAX_LINE = 512;
 
 /// The level while MQTT is down, when only the serial console can show anything. Warnings and errors
 /// carry every connection failure ESPHome reports, a few lines per retry; more would block the main
-/// loop whenever a burst outgrows the console's 512-byte UART buffer. core.yaml boots at the same
-/// level, so warnings from before this component's setup reach the console too.
+/// loop whenever a burst outgrows the console's 512-byte UART buffer.
 static constexpr uint8_t OFFLINE_LEVEL = ESPHOME_LOG_LEVEL_WARN;
 
 /// Publishes log lines to `<topic prefix>/debug` while a window is open, and keeps the console at
 /// OFFLINE_LEVEL while MQTT is down.
 ///
 /// The window raises the logger's runtime level and closes on its own: at its deadline, on a
-/// command, or at the next boot. Lines are QoS 0 and never retained: a retained log topic replays one
-/// stale line to every new subscriber.
+/// command, when MQTT drops, or at the next boot. Lines are QoS 0 and never retained: a retained log
+/// topic replays one stale line to every new subscriber.
 class DebugLogs : public Component {
  public:
   void setup() override;
   void dump_config() override;
+
+  /// Ahead of ciotcfg (BUS), so its report of a missing identity — the reason MQTT never connects —
+  /// is already at OFFLINE_LEVEL. core.yaml boots at logger_level: a consumer config that sets
+  /// `logger: level:` itself would refuse a more verbose initial_level.
+  float get_setup_priority() const override { return setup_priority::BUS + 1.0f; }
 
   void set_quiet_level(uint8_t level) { this->quiet_level_ = level; }
 
