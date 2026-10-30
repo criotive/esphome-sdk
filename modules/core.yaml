@@ -1,5 +1,6 @@
 substitutions:
-  logger_level: NONE
+  logger_level: NONE # The level a device boots at.
+  debug_logs_max_level: DEBUG # The most a debug_logs window can raise it to; NONE compiles logs out.
   logger_baud_rate: "0" # Serial off by default; frees GPIO1.
   framework_variant: esp-idf
   ota_rollback: "true"
@@ -19,7 +20,7 @@ external_components:
       type: git
       url: https://github.com/criotive/esphome-sdk
       ref: ${sdk_ref}
-    components: [sdk_boot]
+    components: [sdk_boot, debug_logs]
 
 # Not `esphome: on_boot`: a device config that writes its own `on_boot` as a
 # mapping replaces that list, and the platform would never learn the version
@@ -51,7 +52,13 @@ preferences:
 # port improv_serial must answer on. A device whose console is elsewhere sets
 # `logger: hardware_uart:` in its own config.
 logger:
-  level: ${logger_level}
+  # `level` is what the binary can ever log and `initial_level` what it boots at. The compiled level
+  # is the more verbose of the two knobs, because ESPHome refuses an initial_level above it.
+  level: "${ logger_level if ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(logger_level | upper) > ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(debug_logs_max_level | upper) else debug_logs_max_level }"
+  # A device boots offline, so it boots at debug_logs' OFFLINE_LEVEL (WARN, capped at the compiled
+  # level, raised to logger_level when that is more verbose); debug_logs drops to logger_level once
+  # MQTT connects.
+  initial_level: "${ ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'][[['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(logger_level | upper), [2, ['NONE', 'ERROR', 'WARN', 'INFO', 'CONFIG', 'DEBUG', 'VERBOSE', 'VERY_VERBOSE'].index(debug_logs_max_level | upper)] | min] | max] }"
   baud_rate: ${logger_baud_rate}
 
 time:
