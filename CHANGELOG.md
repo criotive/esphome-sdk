@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.5](https://github.com/criotive/esphome-sdk/compare/v0.6.4...v0.6.5) (2026-10-30)
+
+
+### Features
+
+* **logger:** debug logs on demand, and warnings on the console while offline ([124b4de](https://github.com/criotive/esphome-sdk/commit/124b4de6da3115f16e567fd93dc757eb3fcbe89f))
+
+
+### Bug Fixes
+
+* **logger:** raise the offline level in setup, and answer a close with no window open ([68b1705](https://github.com/criotive/esphome-sdk/commit/68b1705ace29cd01540d723491e25e0fcb6b862a))
+
 ## [0.6.4](https://github.com/criotive/esphome-sdk/compare/v0.6.3...v0.6.4) (2026-10-29)
 
 
