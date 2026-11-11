@@ -820,8 +820,11 @@ restructuring the others.
 - `wifi_ap.yaml` — the fallback access point (`criotive - <device_name>`), its captive portal and the
   AP-name lambda, which runs from `sdk_boot`. Requires `wifi_ap_password`; see **Improv**.
 - `criotive_mqtt.yaml` — mqtt client, birth / last-will / shutdown messages, `on_connect`, and the
-  system `command` subscription that dispatches the `ota` command. Needs `ota.yaml` and
-  `ciotcfg.yaml`.
+  system `command` subscription that dispatches the `ota` command, and `google_location`, so every
+  device answers the platform's `{"command":"fetch_location"}`: it retains ESPHome's full connection
+  scan and publishes up to ten of its access points on `<topic_prefix>/telemetry` as
+  `location_parameters`. `location_system_command_topic` can override the bare command topic for a
+  broker without a listener mountpoint. Needs `ota.yaml` and `ciotcfg.yaml`.
 - `ota.yaml` — `safe_mode`, the `http_request` OTA platform, the native ESPHome OTA platform only when
   `ota_password` is set, `ota_status`, `script_ota_from_command`, the rollback watchdog, System
   Rollback, and the log levels that keep the OTA url out of the logs. See **Updating over the air**. The rollback watchdog
@@ -846,11 +849,10 @@ restructuring the others.
   press landed. The delay lets that publish reach the socket before the action kills the MQTT
   client. Declares `ack_button`'s `external_components` itself, so importing this module is
   enough.
-- `location.yaml` — `google_location`, its `ack_button` Location Request, and the
-  `external_components` for both. It retains ESPHome's full connection scan, accepts the platform's
-  `{"command":"fetch_location"}` system command on `command`, and publishes the result on
-  `<topic_prefix>/telemetry` as `location_parameters`. `location_system_command_topic` can override
-  the bare command topic for a broker without a listener mountpoint.
+- `location.yaml` — the `ack_button` Location Request, an alternate trigger for Home Assistant
+  clients, and its `external_components`. Needs `criotive_mqtt.yaml`, which owns the
+  `google_location` sensor the button updates; the platform's `fetch_location` needs no module of
+  its own.
 
 ### What each module publishes
 
@@ -883,7 +885,7 @@ the MQTT component `sensor`, not `text_sensor`. An `internal: true` entity publi
 
 `ciotcfg.yaml`, `wifi_ap.yaml`, `criotive_mqtt.yaml`, `improv_serial.yaml`, `improv_ble.yaml`
 and the driver modules (`ack_button`, `linear_motor`, `medeawiz`, `phone`, `tca8418`) publish no entity
-of their own. `location.yaml`'s `Google location` text sensor is internal; its result arrives as
+of their own. `criotive_mqtt.yaml`'s `Google location` text sensor is internal; its result arrives as
 `location_parameters` on `<topic_prefix>/telemetry`.
 
 A device's own entity whose object_id equals one of these collides with it. Wi-Fi signal and boot

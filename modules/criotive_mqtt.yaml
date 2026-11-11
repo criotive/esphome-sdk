@@ -7,11 +7,32 @@ substitutions:
   # location_system_command_topic, which is the same topic for the same reason.
   mqtt_system_command_topic: command
   mqtt_discovery: "true"
+  # Also defaulted in location.yaml, which predates this module answering fetch_location; both
+  # defaults must stay equal, or the one a package list merges last silently wins.
+  location_system_command_topic: command
 
 # Opened and closed by the `logs` system command below; `level` is where it settles once connected.
 debug_logs:
   id: debug_logs_window
   level: ${logger_level}
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/criotive/esphome-sdk
+      ref: ${sdk_ref}
+    components: [google_location]
+
+# Every device answers the platform's {"command":"fetch_location"} with the access points of its
+# last Wi-Fi scan, as location_parameters on <topic_prefix>/telemetry. The component subscribes to
+# the system command topic itself. location.yaml adds only the Location Request button.
+text_sensor:
+  - platform: google_location
+    name: "Google location"
+    id: id_google_location
+    internal: true
+    system_command_topic: ${location_system_command_topic}
+    update_interval: never
 
 mqtt:
   id: mqtt_client
