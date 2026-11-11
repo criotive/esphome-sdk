@@ -1,7 +1,7 @@
 # Fixture: core + diagnostics + controls + location must validate with no duplicate ids. wifi is
 # imported because google_location declares DEPENDENCIES = ["wifi"], and criotive_mqtt (with the
-# ciotcfg it reads its broker from) because it owns the google_location sensor location's button
-# presses — not as extra scope.
+# ciotcfg it reads its broker from and the ota it dispatches updates to) because it owns the
+# google_location sensor location's button presses — not as extra scope.
 substitutions:
   device_name: diag-ctl-loc-testdev
   firmware_version: "0.0.0-test"
@@ -25,6 +25,8 @@ packages:
       - path: modules/criotive_mqtt.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/ciotcfg.yaml
+        vars: {sdk_ref: __SDK_REF__}
+      - path: modules/ota.yaml
         vars: {sdk_ref: __SDK_REF__}
       - path: modules/diagnostics.yaml
         vars: {sdk_ref: __SDK_REF__}
