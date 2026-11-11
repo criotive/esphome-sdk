@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/criotive/esphome-sdk/compare/v0.6.5...v0.7.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mqtt:** modules/location.yaml now needs modules/criotive_mqtt.yaml, which owns the google_location sensor its Location Request button updates.
+
+### Features
+
+* **mqtt:** answer fetch_location on every device ([030e971](https://github.com/criotive/esphome-sdk/commit/030e97160aa731f5745ab9ef3f88ea43651f6868))
+
 ## [0.6.5](https://github.com/criotive/esphome-sdk/compare/v0.6.4...v0.6.5) (2026-10-30)
 
 
