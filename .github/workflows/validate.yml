@@ -151,8 +151,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # ESPHome compiles through ccache whenever it is on PATH; the runner image has none.
+      # ESPHome compiles through ccache whenever it is on PATH; the runner image has none. It only
+      # speeds the build up, so a mirror the runner cannot resolve must not fail the compile.
       - name: Install ccache
+        continue-on-error: true
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ccache
 
       # Restore only: main's release-gate saves these, and pull requests can read main's caches.
