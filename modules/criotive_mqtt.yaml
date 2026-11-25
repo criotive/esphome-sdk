@@ -44,10 +44,9 @@ mqtt:
   # never enables MQTT at all, so this address is never dialled.
   broker: "0.0.0.0"
 
-  # No `certificate_authority` here, and that is what makes one image serve many environments.
-  # mqtt_backend_esp32 selects MQTT_TRANSPORT_OVER_SSL from ca_certificate_ holding a value at
-  # runtime and MQTT_TRANSPORT_OVER_TCP otherwise, so the anchor arrives with the credentials it
-  # validates rather than being compiled in beside them.
+  # No `certificate_authority` or `tls` here, and that is what makes one image serve many
+  # environments: ciotcfg turns TLS on and supplies the CA at runtime, so the anchor arrives with
+  # the credentials it validates rather than being compiled in beside them.
 
   reboot_timeout: ${mqtt_reboot_timeout}
   discovery: ${mqtt_discovery}

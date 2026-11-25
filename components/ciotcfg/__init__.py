@@ -138,3 +138,8 @@ async def to_code(config: dict[str, Any]) -> None:
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+
+    # From ESPHome 2026.11.0 the MQTT transport is TLS only under this define, and nothing in the
+    # YAML sets it because the CA arrives at runtime. Without it, the build fails rather than
+    # falling back to plain TCP. Earlier releases never read it.
+    cg.add_define("USE_MQTT_TLS")

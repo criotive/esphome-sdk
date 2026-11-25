@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ESPHOME_VERSION: "2026.9.1"
+  ESPHOME_VERSION: "2026.11.1"
   SDK_REF: ${{ github.event.pull_request.head.sha }}
 
 jobs:
