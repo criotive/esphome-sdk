@@ -796,7 +796,7 @@ of passing silently.
   end-to-end. Belt-and-braces: by the time it runs the tag is already public and permanent, which is
   why the blocking compile lives in `release-gate.yml`.
 
-CI validates against ESPHome **2026.5.1** (pinned in each workflow). This is the version the SDK is
+CI validates against ESPHome **2026.11.1** (pinned in each workflow). This is the version the SDK is
 checked and compiled against; it is not a claim about which ESPHome version any build service
 installs.
 
