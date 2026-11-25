@@ -46,6 +46,7 @@ class CiotCfg : public Component {
   std::string client_id_;
   std::string host_;
   uint16_t port_{0};
+  std::string ca_;
 };
 
 }  // namespace esphome::ciotcfg

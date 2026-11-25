@@ -421,10 +421,11 @@ the pairing is enforced. It used to be a `1/0` guard in this file; it is now the
 whatever writes the record, which is the only thing that knows which deployment a given device
 belongs to.
 
-**Port `8883` does not enable TLS, and neither does anything in this repository.**
-`mqtt_backend_esp32` selects `MQTT_TRANSPORT_OVER_SSL` when `ca_certificate_` holds a value and
-`MQTT_TRANSPORT_OVER_TCP` when it does not, at runtime. The certificate in the record is what
-encrypts the transport. A record without a usable `ca` is refused outright rather than downgraded.
+**Port `8883` does not enable TLS; `ciotcfg` does.** Before ESPHome 2026.11.0,
+`mqtt_backend_esp32` selects `MQTT_TRANSPORT_OVER_SSL` at runtime when `ca_certificate_` holds a
+value, so the certificate in the record is what encrypts the transport. From 2026.11.0 it selects
+it at compile time under `USE_MQTT_TLS`, which `ciotcfg` defines, and validates the broker against
+the record's certificate. A record without a usable `ca` is refused outright rather than downgraded.
 
 **Failure is closed, and loud.** A missing partition, an absent or corrupt record, a format version
 this firmware does not understand, or any required field blank — each disables MQTT entirely and

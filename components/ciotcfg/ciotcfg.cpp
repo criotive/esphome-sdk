@@ -5,6 +5,7 @@
 #include "esphome/components/json/json_util.h"
 #include "esphome/components/mqtt/mqtt_client.h"
 #include "esphome/core/log.h"
+#include "esphome/core/version.h"
 
 #include <esp_err.h>
 #include <esp_partition.h>
@@ -164,16 +165,20 @@ bool CiotCfg::apply_(const uint8_t *payload, size_t length) {
     client->set_password(password);
     client->set_client_id(client_id);
 
-    // TLS is selected at runtime from whether a CA is present: mqtt_backend_esp32 picks
-    // MQTT_TRANSPORT_OVER_SSL only when ca_certificate_ holds a value and MQTT_TRANSPORT_OVER_TCP
-    // otherwise. This call is therefore what encrypts the transport; the port number alone does
-    // nothing. The backend copies into its own std::string, so this buffer may be freed after it.
-    client->set_ca_certificate(ca);
+    // This CA is what puts MQTT on TLS; the port number alone does nothing. Before ESPHome 2026.11.0
+    // the backend picks TLS at runtime when a CA is set; from 2026.11.0 USE_MQTT_TLS (__init__.py)
+    // does, and the backend keeps only this pointer, so the CA lives in a member, not the parse.
+    this->ca_ = ca;
+    client->set_ca_certificate(this->ca_.c_str());
 
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 11, 0)
+    client->set_topic_prefix(topic_prefix);
+#else
     // The second argument is check_topic_prefix: set_topic_prefix substitutes App.get_name() for
     // the prefix when the two are EQUAL and name_add_mac_suffix is on. An empty string cannot equal
     // a prefix just proven non-empty, so this always takes the value verbatim.
     client->set_topic_prefix(topic_prefix, "");
+#endif
 
     // set_topic_prefix does not reach these. ESPHome derives the availability topics from the
     // prefix in Python, at codegen time, so they still carry the device_name the image was compiled
