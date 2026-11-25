@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.1](https://github.com/criotive/esphome-sdk/compare/v0.7.0...v0.7.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **ciotcfg:** build on ESPHome 2026.11 and keep MQTT on TLS with the runtime CA ([89259df](https://github.com/criotive/esphome-sdk/commit/89259df75aafd6e39b6123cc990b667b2d8b5d42))
+* **ciotcfg:** build on ESPHome 2026.11 and move CI to 2026.11.1 ([59d8387](https://github.com/criotive/esphome-sdk/commit/59d83874c03032d708d9e773d5bf540de562cc20))
+
+
+### Documentation
+
+* **readme:** state ESPHome 2026.11.1 as the version CI checks the SDK against ([797a5a8](https://github.com/criotive/esphome-sdk/commit/797a5a8abf606ea056ee7088181f2de0577b84cc))
+
 ## [0.7.0](https://github.com/criotive/esphome-sdk/compare/v0.6.5...v0.7.0) (2026-11-11)
 
 
